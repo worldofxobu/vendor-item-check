@@ -8,6 +8,8 @@ import os
 import re
 import sys
 import math
+import shutil
+import subprocess
 
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 ADDON_DIR = os.path.join(ROOT_DIR, "VendorItemCheck")
@@ -52,6 +54,10 @@ def validate_toc_files():
 
 
 def validate_lua_syntax(file_path: str):
+    if shutil.which("luac"):
+        proc = subprocess.run(["luac", "-p", file_path], capture_output=True, text=True)
+        assert proc.returncode == 0, f"Lua syntax error in {file_path}:\n{proc.stderr.strip()}"
+
     with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
 

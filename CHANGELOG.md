@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fixed a Lua syntax error in `Tooltip.lua` caused by invalid method existence check syntax (`tooltip:NumLines and`).
+
 ### Added
 - Initial release of Vendor Item Check for WoW Classic Era and WoW Forever.
 - Compact item tooltip indicator showing if an item can be bought at a vendor.

@@ -32,7 +32,7 @@ local function TooltipContainsSection(tooltip)
         return false
     end
 
-    local numLines = tooltip:NumLines and tooltip:NumLines() or 0
+    local numLines = tooltip.NumLines and tooltip:NumLines() or 0
     for i = 1, numLines do
         local line = _G[tooltipName .. "TextLeft" .. i]
         if line and line.GetText then
