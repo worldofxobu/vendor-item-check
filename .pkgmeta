@@ -1,0 +1,19 @@
+package-as: VendorItemCheck
+enable-nolib-creation: no
+
+# The repository keeps addon files in a subdirectory. Flatten it in the ZIP.
+move-folders:
+    VendorItemCheck/VendorItemCheck: VendorItemCheck
+
+ignore:
+    - tests
+    - scripts
+    - README.md
+    - CONTRIBUTING.md
+    - AGENTS.md
+
+manual-changelog:
+    filename: CHANGELOG.md
+    markup-type: markdown
+
+license-output: LICENSE

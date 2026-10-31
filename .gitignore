@@ -1,0 +1,7 @@
+# Vendor Item Check gitignore
+.cache/
+scripts/.cache/
+*.zip
+.DS_Store
+*.swp
+*~

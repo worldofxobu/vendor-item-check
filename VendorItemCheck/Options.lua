@@ -1,0 +1,230 @@
+local _, VIC = ...
+
+local controls = {}
+local MODIFIER_KEYS = { "ALT", "SHIFT", "CTRL", "NONE" }
+local MODIFIER_LABELS = {
+    ALT = "Alt key (Hold to expand)",
+    SHIFT = "Shift key (Hold to expand)",
+    CTRL = "Ctrl key (Hold to expand)",
+    NONE = "None (Always expanded)",
+}
+
+local function SetCheckboxText(checkbox, text)
+    if checkbox.Text then
+        checkbox.Text:SetText(text)
+    else
+        local label = _G[checkbox:GetName() .. "Text"]
+        if label then
+            label:SetText(text)
+        end
+    end
+end
+
+local function CreateCheckbox(panel, key, label, description, anchor)
+    local name = "VICOption" .. key
+    local checkbox = CreateFrame("CheckButton", name, panel, "InterfaceOptionsCheckButtonTemplate")
+    checkbox:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -10)
+    SetCheckboxText(checkbox, label)
+    checkbox.tooltipText = label
+    checkbox.tooltipRequirement = description
+    checkbox:SetScript("OnClick", function(self)
+        VIC.settings[key] = self:GetChecked() and true or false
+    end)
+    checkbox.settingKey = key
+    controls[#controls + 1] = checkbox
+    return checkbox
+end
+
+local function CreateStepper(panel, key, label, minimum, maximum, step, anchor)
+    local row = CreateFrame("Frame", nil, panel)
+    row:SetSize(420, 28)
+    row:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -14)
+
+    local labelText = row:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    labelText:SetPoint("LEFT", 0, 0)
+    labelText:SetText(label)
+
+    local minus = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+    minus:SetSize(28, 22)
+    minus:SetPoint("LEFT", 240, 0)
+    minus:SetText("-")
+
+    local value = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    value:SetSize(40, 20)
+    value:SetPoint("LEFT", minus, "RIGHT", 4, 0)
+    value:SetJustifyH("CENTER")
+
+    local plus = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+    plus:SetSize(28, 22)
+    plus:SetPoint("LEFT", value, "RIGHT", 4, 0)
+    plus:SetText("+")
+
+    local function Change(delta)
+        local current = tonumber(VIC.settings[key]) or minimum
+        VIC.settings[key] = math.max(minimum, math.min(maximum, current + delta))
+        value:SetText(VIC.settings[key])
+    end
+
+    minus:SetScript("OnClick", function() Change(-step) end)
+    plus:SetScript("OnClick", function() Change(step) end)
+
+    row.settingKey = key
+    row.valueText = value
+    controls[#controls + 1] = row
+    return row
+end
+
+local function CreateModifierCycle(panel, anchor)
+    local row = CreateFrame("Frame", nil, panel)
+    row:SetSize(460, 28)
+    row:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -14)
+
+    local label = row:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    label:SetPoint("LEFT", 0, 0)
+    label:SetText("Expand modifier key:")
+
+    local btn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+    btn:SetSize(180, 22)
+    btn:SetPoint("LEFT", 240, 0)
+
+    local function GetCurrentIndex()
+        local current = VIC.settings.modifierKey or "ALT"
+        for i, k in ipairs(MODIFIER_KEYS) do
+            if k == current then return i end
+        end
+        return 1
+    end
+
+    local function UpdateButton()
+        local current = VIC.settings.modifierKey or "ALT"
+        btn:SetText(current == "NONE" and "Always Expanded" or ("Hold " .. current))
+    end
+
+    btn:SetScript("OnClick", function()
+        local idx = GetCurrentIndex()
+        idx = (idx % #MODIFIER_KEYS) + 1
+        VIC.settings.modifierKey = MODIFIER_KEYS[idx]
+        UpdateButton()
+    end)
+
+    row.UpdateButton = UpdateButton
+    controls[#controls + 1] = row
+    return row
+end
+
+function VIC:RefreshOptions()
+    if not self.settings then return end
+
+    for _, ctrl in ipairs(controls) do
+        if ctrl.settingKey then
+            if ctrl.GetChecked then
+                ctrl:SetChecked(self.settings[ctrl.settingKey] and true or false)
+            elseif ctrl.valueText then
+                ctrl.valueText:SetText(self.settings[ctrl.settingKey] or "")
+            end
+        elseif ctrl.UpdateButton then
+            ctrl.UpdateButton()
+        end
+    end
+end
+
+function VIC:OpenOptions()
+    if Settings and Settings.OpenToCategory and self.settingsCategoryID then
+        Settings.OpenToCategory(self.settingsCategoryID)
+    elseif InterfaceOptionsFrame_OpenToCategory then
+        InterfaceOptionsFrame_OpenToCategory(self.optionsPanel)
+        InterfaceOptionsFrame_OpenToCategory(self.optionsPanel)
+    end
+end
+
+function VIC:CreateOptionsPanel()
+    local panel = CreateFrame("Frame", "VendorItemCheckOptionsPanel", UIParent)
+    panel.name = self.title
+
+    local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", 16, -16)
+    title:SetText(self.title)
+
+    local version = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    version:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 8, 2)
+    version:SetText("v" .. self.version)
+
+    local subtitle = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
+    subtitle:SetText("Enhances item tooltips by showing if an item can be bought from an NPC vendor.")
+
+    local enabled = CreateCheckbox(panel, "enabled", "Enable Vendor Item Check", "Show vendor information on item tooltips.", subtitle)
+    local modCycle = CreateModifierCycle(panel, enabled)
+    local maxVendors = CreateStepper(panel, "maxVendors", "Max vendors shown:", 1, 10, 1, modCycle)
+    local closestFirst = CreateCheckbox(panel, "showClosestFirst", "Sort closest vendors first", "Shows vendors in your current zone and nearest coordinates first.", maxVendors)
+    local coords = CreateCheckbox(panel, "showCoordinates", "Show vendor coordinates", "Shows (x, y) coordinates for vendor locations.", closestFirst)
+    local price = CreateCheckbox(panel, "showPrice", "Show vendor purchase price", "Displays the vendor buy price in the tooltip.", coords)
+    local faction = CreateCheckbox(panel, "showFaction", "Show vendor faction tag", "Displays [Alliance], [Horde], or [Neutral] tags.", price)
+
+    local resetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    resetBtn:SetSize(120, 22)
+    resetBtn:SetPoint("TOPLEFT", faction, "BOTTOMLEFT", 0, -20)
+    resetBtn:SetText("Reset Defaults")
+    resetBtn:SetScript("OnClick", function()
+        for k, v in pairs(VIC.defaults) do
+            VIC.settings[k] = v
+        end
+        VIC:RefreshOptions()
+        VIC:Print("Settings reset to defaults.")
+    end)
+
+    panel:SetScript("OnShow", function()
+        VIC:RefreshOptions()
+    end)
+
+    self.optionsPanel = panel
+
+    if Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory then
+        local category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
+        Settings.RegisterAddOnCategory(category)
+        self.settingsCategoryID = category:GetID()
+    elseif InterfaceOptions_AddCategory then
+        InterfaceOptions_AddCategory(panel)
+    end
+
+    self:RefreshOptions()
+end
+
+function VIC:OptionsInitialize()
+    self:CreateOptionsPanel()
+
+    SLASH_VENDORITEMCHECK1 = "/vic"
+    SLASH_VENDORITEMCHECK2 = "/vendorcheck"
+
+    SlashCmdList.VENDORITEMCHECK = function(msg)
+        msg = strtrim(string.lower(msg or ""))
+        local cmd, arg = string.match(msg, "^(%S+)%s*(.*)$")
+        cmd = cmd or ""
+
+        if cmd == "toggle" then
+            VIC.settings.enabled = not VIC.settings.enabled
+            VIC:RefreshOptions()
+            VIC:Print("Addon is now %s.", VIC.settings.enabled and "|cff00ff00enabled|r" or "|cffff0000disabled|r")
+        elseif cmd == "status" then
+            local items, vendors = VIC:CountIndexedItems()
+            VIC:Print("%d items and %d vendors indexed. Enabled: %s, Modifier: %s, Max: %d",
+                items, vendors,
+                VIC.settings.enabled and "Yes" or "No",
+                VIC.settings.modifierKey,
+                VIC.settings.maxVendors)
+        elseif cmd == "max" and tonumber(arg) then
+            local n = math.max(1, math.min(10, tonumber(arg)))
+            VIC.settings.maxVendors = n
+            VIC:RefreshOptions()
+            VIC:Print("Max vendors set to %d.", n)
+        elseif cmd == "help" then
+            VIC:Print("Commands:")
+            VIC:Print("  /vic - Open settings")
+            VIC:Print("  /vic toggle - Toggle enabled state")
+            VIC:Print("  /vic status - Display index count and configuration")
+            VIC:Print("  /vic max <1-10> - Set maximum vendors shown in tooltip")
+        else
+            VIC:OpenOptions()
+        end
+    end
+end
