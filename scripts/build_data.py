@@ -263,7 +263,8 @@ def main():
     args = parser.parse_args()
     if args.refresh and args.check:
         parser.error("--refresh and --check are mutually exclusive")
-    old_dataset = compile_snapshot(json.loads(args.snapshot.read_text())) if args.snapshot.exists() else None
+    old_snapshot = json.loads(args.snapshot.read_text()) if args.snapshot.exists() else None
+    old_dataset = compile_snapshot(old_snapshot) if old_snapshot else None
     snapshot = download_snapshot() if args.refresh else json.loads(args.snapshot.read_text())
     dataset = compile_snapshot(snapshot)
     if args.refresh and datetime.now(timezone.utc) - timestamp(dataset["metadata"]["dataAsOf"]) > timedelta(days=2):
@@ -282,6 +283,9 @@ def main():
               f"vendors +{len(new_vendors - old_vendors)}/-{len(old_vendors - new_vendors)}, "
               f"{changed} item offer/price/freshness changes")
         if args.refresh and previous and all(old_dataset[key] == dataset[key] for key in ("vendors", "items")):
+            expected = render(old_dataset, hashlib.sha256(encode(old_snapshot)).hexdigest())
+            if previous != expected:
+                raise ValueError("Existing output differs from its snapshot; reproduce it offline before refreshing")
             print("No changes to vendor data; preserving the existing reproducible snapshot.")
             return
     if args.check:

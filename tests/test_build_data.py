@@ -1,7 +1,8 @@
 """Contract and failure-mode tests for the public Forever feed importer."""
 
 import copy
-import json
+from datetime import datetime, timezone
+import hashlib
 from pathlib import Path
 import subprocess
 import shutil
@@ -158,10 +159,32 @@ class BuildDataTests(unittest.TestCase):
             output.write_text(builder.render(builder.compile_snapshot(snapshot()), "original"))
             original_output, original_source = output.read_bytes(), source.read_bytes()
             argv = ["build_data", "--refresh", "--snapshot", str(source), "--output", str(output)]
-            with patch.object(sys, "argv", argv), patch.object(builder, "download_snapshot", return_value=snapshot([])):
+            fresh_empty = snapshot([])
+            fresh_empty["pages"][0]["response"]["dataAsOf"] = datetime.now(timezone.utc).isoformat()
+            with patch.object(sys, "argv", argv), patch.object(builder, "download_snapshot", return_value=fresh_empty):
                 with self.assertRaisesRegex(ValueError, "empty a populated"):
                     builder.main()
             self.assertEqual(output.read_bytes(), original_output)
+            self.assertEqual(source.read_bytes(), original_source)
+
+    def test_unchanged_refresh_does_not_create_metadata_only_changes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source, output = Path(directory) / "source.json", Path(directory) / "Data.lua"
+            saved = snapshot([])
+            source.write_bytes(builder.encode(saved))
+            output.write_text(builder.render(builder.compile_snapshot(saved), hashlib.sha256(builder.encode(saved)).hexdigest()))
+            original_output, original_source = output.read_bytes(), source.read_bytes()
+            fresh_empty = snapshot([])
+            fresh_empty["pages"][0]["response"]["dataAsOf"] = datetime.now(timezone.utc).isoformat()
+            argv = ["build_data", "--refresh", "--snapshot", str(source), "--output", str(output)]
+            with patch.object(sys, "argv", argv), patch.object(builder, "download_snapshot", return_value=fresh_empty):
+                builder.main()
+            self.assertEqual(output.read_bytes(), original_output)
+            self.assertEqual(source.read_bytes(), original_source)
+            output.write_text("corrupted generated file")
+            with patch.object(sys, "argv", argv), patch.object(builder, "download_snapshot", return_value=fresh_empty):
+                with self.assertRaisesRegex(ValueError, "Existing output differs"):
+                    builder.main()
             self.assertEqual(source.read_bytes(), original_source)
 
     def test_checked_in_data_reproduces_offline(self):

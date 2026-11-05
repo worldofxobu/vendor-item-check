@@ -110,6 +110,8 @@ network import must have a source date within two days. Failures before validati
 leave existing files untouched. A populated-to-empty refresh requires manual review;
 reproduce a separately reviewed snapshot offline if that removal is intentional.
 Unchanged vendor data leaves the existing snapshot and generated file unchanged.
+The existing generated file must still match its snapshot; reproduce it offline if
+the refresh reports a mismatch.
 
 Initial source check (2026-11-05, data as of 03:10:11.401 UTC): 449 NPC sightings,
 zero vendor reports, zero qualifying item/vendor offers. Keep coverage statements
@@ -169,3 +171,7 @@ build, interface and dataset date when performing these checks on each client:
 Live source availability alone does not verify in-game behavior. Until the Forever
 feed has qualifying offers, populated Forever rendering is tested with synthetic
 fixtures only.
+
+Importer tests use fixed observation times for reproducibility and current source
+timestamps when exercising network-refresh freshness checks. Keep these separate
+so scheduled checks remain valid after the fixture dates have passed.
