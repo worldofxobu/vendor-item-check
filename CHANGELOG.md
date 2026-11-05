@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Forever no longer displays historical Classic inventories, locations, faction restrictions, or prices as Forever data.
-- Both TOC variants accept the Forever interface alongside supported Classic Era interfaces.
+- Client-specific TOCs use matching Forever or Classic Era interface numbers, preventing flavor mismatch errors during packaging.
 - Fixed a Lua syntax error in `Tooltip.lua` caused by invalid method existence check syntax (`tooltip:NumLines and`).
 
 ### Added

@@ -19,7 +19,8 @@ def validate_toc_files():
     print("[1/5] Validating TOC manifests...")
     toc_files = [
         os.path.join(ADDON_DIR, "VendorItemCheck.toc"),
-        os.path.join(ADDON_DIR, "VendorItemCheck_Vanilla.toc")
+        os.path.join(ADDON_DIR, "VendorItemCheck_Vanilla.toc"),
+        os.path.join(ADDON_DIR, "VendorItemCheck_Camelot.toc"),
     ]
     for toc_path in toc_files:
         assert os.path.exists(toc_path), f"Missing TOC file: {toc_path}"
@@ -36,7 +37,17 @@ def validate_toc_files():
                 continue
             if line.startswith("## Interface:"):
                 has_interface = True
-                assert "16001" in line and "11509" in line, f"Missing target interface in {toc_path}"
+                interfaces = {value.strip() for value in line.split(":", 1)[1].split(",")}
+                if toc_path.endswith("_Vanilla.toc"):
+                    assert "11509" in interfaces and "16001" not in interfaces, f"Classic TOC has wrong flavor in {toc_path}"
+                elif toc_path.endswith("_Camelot.toc"):
+                    assert interfaces == {"16001"}, f"Forever TOC has wrong flavor in {toc_path}"
+                else:
+                    assert {"16001", "11509"} <= interfaces, f"Missing target interface in {toc_path}"
+            elif line.startswith("## Interface-Vanilla:"):
+                assert "11509" in line and "16001" not in line, f"Classic flavor override has wrong interfaces in {toc_path}"
+            elif line.startswith("## Interface-Camelot:"):
+                assert line.split(":", 1)[1].strip() == "16001", f"Forever flavor override has wrong interfaces in {toc_path}"
             elif line.startswith("## Title:"):
                 has_title = True
             elif not line.startswith("##"):
@@ -44,7 +55,7 @@ def validate_toc_files():
 
         assert has_interface, f"No ## Interface tag in {toc_path}"
         assert has_title, f"No ## Title tag in {toc_path}"
-        assert len(files_to_load) >= 4, f"Expected at least 4 lua files in {toc_path}, found {len(files_to_load)}"
+        assert files_to_load == ["Data.lua", "DataForever.lua", "Core.lua", "Merchant.lua", "Export.lua", "Tooltip.lua", "Options.lua"], f"Incorrect addon load order in {toc_path}"
 
         for lua_file in files_to_load:
             full_path = os.path.join(ADDON_DIR, lua_file)

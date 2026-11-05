@@ -1,0 +1,15 @@
+## Interface: 16001
+## Title: Vendor Item Check
+## Notes: Shows if an item can be bought at a vendor, with expandable vendor locations on Alt.
+## Author: Xobu
+## Version: 0.1.0
+## SavedVariables: VendorItemCheckDB
+## OptionalDeps: Informant
+
+Data.lua
+DataForever.lua
+Core.lua
+Merchant.lua
+Export.lua
+Tooltip.lua
+Options.lua

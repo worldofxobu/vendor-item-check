@@ -52,6 +52,16 @@ The addon ships separate Classic Era and Forever datasets. Runtime code selects 
 dataset using guarded client version/interface APIs. Unsupported or unknown clients
 receive an empty dataset. Saved settings remain compatible.
 
+The base TOC supports both clients. `_Vanilla.toc` and `Interface-Vanilla` must list
+only Classic Era interfaces; `_Camelot.toc` and `Interface-Camelot` must list only
+Forever interfaces. The multi-client fallback header is not a reason to mix flavor
+numbers in the specialized manifests. All three manifests load the same Lua files
+in the same order. Verify the package using the standard BigWigs packager with
+uploading disabled (`-d`); contributor/source-audit docs, tests and build inputs
+must be excluded, and addon files and data attribution must sit directly under
+`VendorItemCheck/` in the installable ZIP. Do not change versions, tag or upload as
+part of a packaging check.
+
 ### Forever source and confidence
 
 Personal observations are a separate layer from the corroborated bundled database.
