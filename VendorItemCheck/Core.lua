@@ -7,13 +7,17 @@ VIC.version = "0.1.0"
 VIC.defaults = {
     enabled = true,
     recordMerchants = true,
-    modifierKey = "ALT",      -- "ALT", "SHIFT", "CTRL", "NONE"
+    modifierKey = "ALT",      -- "ALT", "SHIFT", "CTRL", "OFF", "NONE" (always expanded)
+    controllerModifier = "LT", -- Forever only; observes input without rebinding it
     maxVendors = 4,           -- 1 to 10
     showClosestFirst = true,
     showCoordinates = true,
     showPrice = true,
     showFaction = true,
 }
+
+VIC.keyboardModifiers = { "ALT", "SHIFT", "CTRL", "OFF", "NONE" }
+VIC.controllerModifiers = { "LT", "RT", "LB", "RB", "OFF" }
 
 function VIC:SelectDataset()
     local client = "unknown"
@@ -282,6 +286,14 @@ function VIC:InitializeDB()
         if VendorItemCheckDB[key] == nil then
             VendorItemCheckDB[key] = defaultValue
         end
+    end
+
+    for key, choices in pairs({ modifierKey = self.keyboardModifiers, controllerModifier = self.controllerModifiers }) do
+        local valid = false
+        for _, choice in ipairs(choices) do
+            if VendorItemCheckDB[key] == choice then valid = true end
+        end
+        if not valid then VendorItemCheckDB[key] = self.defaults[key] end
     end
 
     self.settings = VendorItemCheckDB

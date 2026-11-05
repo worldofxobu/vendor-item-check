@@ -123,6 +123,7 @@ def validate_all_lua_syntax():
         os.path.join(ROOT_DIR, "tests", "forever_smoke.lua"),
         os.path.join(ROOT_DIR, "tests", "merchant_smoke.lua"),
         os.path.join(ROOT_DIR, "tests", "export_smoke.lua"),
+        os.path.join(ROOT_DIR, "tests", "controller_smoke.lua"),
         os.path.join(ROOT_DIR, "tests", "contribution_fixture.lua"),
     ]
     for path in lua_files:

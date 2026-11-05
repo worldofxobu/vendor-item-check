@@ -5,7 +5,7 @@ Vendor Item Check is a lightweight, zero-dependency addon for **World of Warcraf
 ## Features
 
 - **Compact Tooltip Indicator**: Adds a clean, native-looking `Sold by vendor` line to item tooltips.
-- **Dynamic Alt-Key Expansion**: Press and hold `Alt` (or your configured modifier) to expand the tooltip with vendor names, zone locations, and coordinates. Releasing collapses it back instantly without cursor re-hovering.
+- **Hold to Expand**: Hold `Alt` or your configured keyboard modifier to show vendor names, zones and coordinates. On Forever, a controller trigger or shoulder button can also expand the item tooltip. Release to collapse without re-hovering.
 - **Faction Filtering**: Filters known faction restrictions. Forever vendors whose access requirements are unrecorded are marked `Access unverified` in the expanded tooltip.
 - **Closest Vendor Priority**: Sorts vendors in your current zone and nearest coordinates to the top of the list.
 - **Vendor Purchase Price**: Displays historical reference prices on Classic Era and observed quotes from your own Forever merchant visits, including purchase quantities.
@@ -79,6 +79,12 @@ A single download targets both clients:
     +8 more vendors across Azeroth
   ```
 
+On Forever, **LT / L2** also expands a visible item tooltip by default. Holding the
+trigger continues its normal action-bar behavior; the addon only observes it while
+a vendor item tooltip is showing. Release it to collapse, or keep holding Alt to
+stay expanded. With a supported controller connected and enabled, the default hint
+is `Hold ALT or LT for locations`.
+
 ## Configuration
 
 Type `/vic` or `/vendorcheck` to open the addon settings.
@@ -95,12 +101,21 @@ Type `/vic` or `/vendorcheck` to open the addon settings.
 
 Options configurable in the settings panel:
 - **Enable/Disable**: Toggle the addon without restarting.
-- **Modifier Key**: Choose `Alt`, `Shift`, `Ctrl`, or `None` (Always Expanded).
+- **Keyboard Expansion Modifier**: Choose `Alt`, `Shift`, `Ctrl`, **Keyboard off**, or **Always expanded**. Existing always-expanded settings are preserved.
+- **Controller Expansion Modifier** (Forever): Choose **LT / L2**, **RT / R2**, **LB / L1**, **RB / R1**, or **Controller off**. The hint follows your selection. This observes the held button without changing its normal game function.
 - **Max Vendors**: Set the number of vendors shown (1–10).
 - **Closest First**: Sort vendors in your current zone to the top.
 - **Show Coordinates**: Display `(x, y)` map coordinates.
 - **Show Purchase Price**: Display Classic Era reference prices and personal Forever quotes.
 - **Show Faction Tag**: Display `[Alliance]`, `[Horde]`, or `[Neutral]` tags.
+
+Open `/vic` and click either modifier selector to cycle its choices. Keyboard and
+controller inputs work independently: either selected input can expand the tooltip.
+Choose **Keyboard off** for controller-only expansion, or **Always expanded** to
+show details without holding anything. These modifier settings apply immediately and survive reloads.
+If the game already makes a controller button emulate Alt/Shift/Ctrl, that also
+activates the corresponding keyboard choice. Classic Era retains keyboard expansion.
+Unavailable controller APIs fall back to keyboard input and a keyboard-only hint.
 
 ## Troubleshooting
 

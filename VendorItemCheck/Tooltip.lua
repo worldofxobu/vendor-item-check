@@ -1,8 +1,22 @@
 local _, VIC = ...
 
 local SECTION_HEADER_TAG = "Sold by vendor"
-local activeTooltips = {}
+local activeTooltips = setmetatable({}, { __mode = "k" })
 local isRefreshing = false
+local UpdatePolling
+local PollTooltips
+local RefreshTooltip
+local isPolling = false
+local pollElapsed = 0
+
+local function ForgetTooltip(tooltip)
+    activeTooltips[tooltip] = nil
+    tooltip._vicItemID = nil
+    tooltip._vicLink = nil
+    tooltip._vicWasExpanded = nil
+    tooltip._vicHint = nil
+    if UpdatePolling then UpdatePolling() end
+end
 
 local function CleanText(text)
     if not text then return "" end
@@ -12,18 +26,19 @@ local function CleanText(text)
 end
 
 local function GetTooltipItemID(tooltip, tooltipData)
-    local ok, itemID = pcall(function()
+    local ok, itemID, itemLink = pcall(function()
         if tooltipData and type(tooltipData.id) == "number" then
             return tooltipData.id
         end
 
         local _, itemLink = tooltip:GetItem()
         if itemLink then
-            return tonumber(string.match(itemLink, "item:(%d+)"))
+            return tonumber(string.match(itemLink, "item:(%d+)")), itemLink
         end
     end)
 
-    return ok and itemID or nil
+    if ok then return itemID, itemLink end
+    return nil
 end
 
 local function TooltipContainsSection(tooltip)
@@ -53,19 +68,62 @@ local function AddBlankLine(tooltip)
     end
 end
 
-function VIC:IsExpanded()
+local CONTROLLER_BINDINGS = {
+    LT = "PADLTRIGGER", RT = "PADRTRIGGER", LB = "PADLSHOULDER", RB = "PADRSHOULDER",
+}
+
+function VIC:GetControllerModifierState()
+    local choice = self.settings and self.settings.controllerModifier or self.defaults.controllerModifier
+    local binding = CONTROLLER_BINDINGS[choice]
+    local api = C_GamePad
+    if self.client ~= "forever" or not binding or type(api) ~= "table" or
+        type(api.GetDeviceMappedState) ~= "function" or type(api.ButtonBindingToIndex) ~= "function" then
+        return false, false
+    end
+    -- Read the physical mapped state, independently of Alt/Shift/Ctrl emulation.
+    -- No bindings, focus, gamepad events, or game CVars are taken over.
+    local ok, pressed, available = pcall(function()
+        if api.IsEnabled and not api.IsEnabled() then return false, false end
+        if api.GetAllDeviceIDs then
+            local devices = api.GetAllDeviceIDs()
+            if type(devices) ~= "table" or next(devices) == nil then return false, false end
+        end
+        local deviceID
+        if api.GetActiveDeviceID then deviceID = api.GetActiveDeviceID()
+        elseif api.GetCombinedDeviceID then deviceID = api.GetCombinedDeviceID() end
+        local state = api.GetDeviceMappedState(deviceID)
+        local index = api.ButtonBindingToIndex(binding)
+        if not state or type(state.buttons) ~= "table" or type(index) ~= "number" or
+            index < 0 or index % 1 ~= 0 then return false, false end
+        -- Binding indices are zero based; the state.buttons array is one based.
+        local down = state.buttons[index + 1]
+        if type(down) ~= "boolean" then return false, false end
+        return down, true
+    end)
+    if ok then return pressed, available end
+    return false, false
+end
+
+function VIC:GetExpansionState()
     local settings = self.settings
     local mod = settings and settings.modifierKey or "ALT"
-
-    if mod == "NONE" then
-        return true
-    elseif mod == "SHIFT" then
-        return IsShiftKeyDown and IsShiftKeyDown() or false
-    elseif mod == "CTRL" then
-        return IsControlKeyDown and IsControlKeyDown() or false
-    else -- "ALT"
-        return IsAltKeyDown and IsAltKeyDown() or false
+    if mod == "NONE" then return true, nil end
+    local keyboardDown = false
+    if mod == "SHIFT" then keyboardDown = IsShiftKeyDown and IsShiftKeyDown() or false
+    elseif mod == "CTRL" then keyboardDown = IsControlKeyDown and IsControlKeyDown() or false
+    elseif mod == "ALT" then keyboardDown = IsAltKeyDown and IsAltKeyDown() or false end
+    local controllerDown, available = self:GetControllerModifierState()
+    local hint = mod ~= "OFF" and mod or nil
+    if available then
+        local controller = settings and settings.controllerModifier or self.defaults.controllerModifier
+        hint = hint and (hint .. " or " .. controller) or controller
     end
+    return keyboardDown or controllerDown, hint
+end
+
+function VIC:IsExpanded()
+    local expanded = self:GetExpansionState()
+    return expanded
 end
 
 local function GetFactionTag(factionCode)
@@ -80,13 +138,13 @@ local function GetFactionTag(factionCode)
     end
 end
 
-function VIC:AddVendorSection(tooltip, itemID, itemInfo)
+function VIC:AddVendorSection(tooltip, itemID, itemInfo, isExpanded, hintKey)
     if TooltipContainsSection(tooltip) then
         return
     end
 
     local settings = self.settings or self.defaults
-    local isExpanded = self:IsExpanded()
+    if isExpanded == nil then isExpanded, hintKey = self:GetExpansionState() end
 
     AddBlankLine(tooltip)
 
@@ -111,9 +169,8 @@ function VIC:AddVendorSection(tooltip, itemID, itemInfo)
 
     if not isExpanded then
         -- Compact line
-        local hintKey = settings.modifierKey or "ALT"
         local hintText = ""
-        if hintKey ~= "NONE" then
+        if hintKey then
             hintText = string.format("  |cff888888(Hold %s for locations)|r", hintKey)
         end
 
@@ -190,33 +247,87 @@ end
 
 local function ProcessItemTooltip(tooltip, tooltipData)
     if not VIC.settings or not VIC.settings.enabled then
+        ForgetTooltip(tooltip)
         return
     end
 
     local itemID = GetTooltipItemID(tooltip, tooltipData)
     if not itemID then
-        tooltip._vicItemID = nil
-        tooltip._vicLink = nil
+        ForgetTooltip(tooltip)
         return
     end
 
-    local itemLink
-    if tooltip.GetItem then
-        local _, link = tooltip:GetItem()
-        itemLink = link
-    end
-    tooltip._vicItemID = itemID
-    tooltip._vicLink = itemLink
-    tooltip._vicWasExpanded = VIC:IsExpanded()
-    activeTooltips[tooltip] = true
-
+    local _, itemLink = GetTooltipItemID(tooltip)
     local itemInfo = VIC:GetItemVendors(itemID)
     if itemInfo and (itemInfo.totalCount > 0 or itemInfo.enemyOnly) then
-        pcall(VIC.AddVendorSection, VIC, tooltip, itemID, itemInfo)
+        local expanded, hint = VIC:GetExpansionState()
+        local ok = pcall(VIC.AddVendorSection, VIC, tooltip, itemID, itemInfo, expanded, hint)
+        if ok then
+            tooltip._vicItemID = itemID
+            tooltip._vicLink = itemLink
+            tooltip._vicWasExpanded = expanded
+            tooltip._vicHint = hint
+            activeTooltips[tooltip] = true
+            if tooltip.HookScript and not tooltip._vicCleanupHooked then
+                tooltip._vicCleanupHooked = true
+                pcall(tooltip.HookScript, tooltip, "OnHide", ForgetTooltip)
+                pcall(tooltip.HookScript, tooltip, "OnTooltipCleared", ForgetTooltip)
+            end
+            if UpdatePolling then UpdatePolling() end
+            return
+        end
+    end
+    ForgetTooltip(tooltip)
+end
+
+function VIC:RefreshVendorTooltips(force)
+    local visible = {}
+    for tip in pairs(activeTooltips) do
+        local itemID, link = GetTooltipItemID(tip)
+        -- Never restore a hidden tooltip or an old item after the UI reuses it.
+        if not tip:IsVisible() or not tip._vicItemID or itemID ~= tip._vicItemID or
+            (tip._vicLink and tip._vicLink ~= link) then
+            ForgetTooltip(tip)
+        else
+            visible[#visible + 1] = tip
+        end
+    end
+    if #visible == 0 or ((not self.settings or not self.settings.enabled) and not force) then
+        if UpdatePolling then UpdatePolling() end
+        return
+    end
+    local expanded, hint = self:GetExpansionState()
+    -- Rebuilding a tooltip can fire OnTooltipCleared and change activeTooltips.
+    for _, tip in ipairs(visible) do
+        if force or tip._vicWasExpanded ~= expanded or tip._vicHint ~= hint then RefreshTooltip(tip) end
+    end
+    if UpdatePolling then UpdatePolling() end
+end
+
+PollTooltips = function(_, elapsed)
+    pollElapsed = pollElapsed + elapsed
+    if pollElapsed < 0.05 then return end
+    pollElapsed = 0
+    VIC:RefreshVendorTooltips(false)
+end
+
+UpdatePolling = function()
+    local watcher = VIC.tooltipWatcher
+    if not watcher then return end
+    local settings = VIC.settings
+    local shouldPoll = VIC.client == "forever" and settings and settings.enabled and
+        settings.modifierKey ~= "NONE" and settings.controllerModifier ~= "OFF" and
+        type(C_GamePad) == "table" and type(C_GamePad.GetDeviceMappedState) == "function" and
+        type(C_GamePad.ButtonBindingToIndex) == "function" and next(activeTooltips) ~= nil
+    shouldPoll = shouldPoll and true or false
+    if shouldPoll ~= isPolling then
+        isPolling = shouldPoll
+        pollElapsed = 0
+        watcher:SetScript("OnUpdate", shouldPoll and PollTooltips or nil)
     end
 end
 
-local function RefreshTooltip(tooltip)
+RefreshTooltip = function(tooltip)
     if isRefreshing or not tooltip or not tooltip:IsVisible() then
         return
     end
@@ -252,11 +363,6 @@ function VIC:TooltipInitialize()
                 tip:HookScript("OnTooltipSetItem", function(self)
                     ProcessItemTooltip(self)
                 end)
-                tip:HookScript("OnHide", function(self)
-                    self._vicItemID = nil
-                    self._vicLink = nil
-                    activeTooltips[self] = nil
-                end)
             end
         end
 
@@ -268,22 +374,10 @@ function VIC:TooltipInitialize()
 
     -- Dynamic refresh on modifier state change
     local keyWatcher = CreateFrame("Frame")
+    self.tooltipWatcher = keyWatcher
     keyWatcher:RegisterEvent("MODIFIER_STATE_CHANGED")
     keyWatcher:SetScript("OnEvent", function()
-        if not VIC.settings or not VIC.settings.enabled then
-            return
-        end
-
-        local currentExpanded = VIC:IsExpanded()
-
-        for tip in pairs(activeTooltips) do
-            if tip:IsVisible() and tip._vicItemID then
-                if tip._vicWasExpanded ~= currentExpanded then
-                    RefreshTooltip(tip)
-                end
-            else
-                activeTooltips[tip] = nil
-            end
-        end
+        VIC:RefreshVendorTooltips(false)
     end)
+    UpdatePolling()
 end

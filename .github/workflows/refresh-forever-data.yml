@@ -43,6 +43,7 @@ jobs:
           lua5.1 tests/forever_smoke.lua
           lua5.1 tests/merchant_smoke.lua
           lua5.1 tests/export_smoke.lua
+          lua5.1 tests/controller_smoke.lua
           python3 scripts/update_data_docs.py --check
           git diff --check
       - name: Prepare review description

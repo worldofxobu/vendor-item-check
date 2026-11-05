@@ -34,6 +34,7 @@ Never upload account credentials, authentication tokens, or private server login
    lua tests/forever_smoke.lua
    lua tests/merchant_smoke.lua
    lua tests/export_smoke.lua
+   lua tests/controller_smoke.lua
    ```
 
 4. Update `CHANGELOG.md` for user-facing changes under `[Unreleased]`.
@@ -45,6 +46,27 @@ Never upload account credentials, authentication tokens, or private server login
 - Prefer descriptive names over abbreviations.
 - Keep tooltip text concise and consistent with the default WoW interface.
 - Guard client API calls that may be absent or temporarily unavailable across client flavors.
+
+## Tooltip expansion inputs
+
+The existing `modifierKey` setting preserves `NONE` as always expanded, with `OFF`
+meaning keyboard input disabled. `controllerModifier` defaults to `LT` and accepts
+LT/RT/LB/RB/OFF on Forever. Modifier choices are validated without altering unrelated
+saved settings or observations.
+
+Controller expansion reads `C_GamePad.GetDeviceMappedState` and resolves each binding
+with `ButtonBindingToIndex`; native binding indices are zero based and mapped-state
+buttons are one based. API reads are guarded. No bindings, gamepad input capture,
+focus settings or CVars are changed. Native keyboard modifier emulation is left to
+the game. Unsupported clients/APIs keep keyboard behavior and omit controller hints.
+
+Only tracked, visible item tooltips with a vendor section are polled, at most every
+50 ms, and only when a controller choice is enabled. Hide/clear/reuse removes the
+tooltip from tracking. Keyboard changes still use `MODIFIER_STATE_CHANGED`; input
+settings refresh open tooltips immediately. Tests must cover press/release, multiple
+tooltips, remapping, disconnection, missing APIs, controller-only and always-expanded
+modes, and preserving normal game controls. Synthetic controller tests do not replace
+an in-game controller check.
 
 ## Vendor data pipeline
 
@@ -257,6 +279,10 @@ build, interface and dataset date when performing these checks on each client:
 - Confirm loading, `/vic status`, settings changes and saved-settings persistence.
 - Hover indexed items in bags, item-link tooltips and the Auction House; hold and
   release each configured modifier and check for one compact/expanded section.
+- On Forever, hold/release the selected controller trigger or shoulder while an
+  item tooltip is visible. Confirm both vendor expansion and the normal action-bar
+  behavior. Change the two modifier settings, disconnect/reconnect the controller,
+  and confirm hidden or unrelated tooltips never reopen.
 - Compare vendor identity and location to the merchant in game. Confirm unknown
   faction access and approximate locations are labelled accurately.
 - Confirm Forever never shows Classic-only vendors or ambiguous prices. Check

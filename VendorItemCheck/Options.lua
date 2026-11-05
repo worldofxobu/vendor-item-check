@@ -1,13 +1,8 @@
 local _, VIC = ...
 
 local controls = {}
-local MODIFIER_KEYS = { "ALT", "SHIFT", "CTRL", "NONE" }
-local MODIFIER_LABELS = {
-    ALT = "Alt key (Hold to expand)",
-    SHIFT = "Shift key (Hold to expand)",
-    CTRL = "Ctrl key (Hold to expand)",
-    NONE = "None (Always expanded)",
-}
+local KEYBOARD_LABELS = { ALT = "Hold ALT", SHIFT = "Hold SHIFT", CTRL = "Hold CTRL", OFF = "Keyboard off", NONE = "Always expanded" }
+local CONTROLLER_LABELS = { LT = "Hold LT / L2", RT = "Hold RT / R2", LB = "Hold LB / L1", RB = "Hold RB / R1", OFF = "Controller off" }
 
 local function SetCheckboxText(checkbox, text)
     if checkbox.Text then
@@ -29,6 +24,7 @@ local function CreateCheckbox(panel, key, label, description, anchor)
     checkbox.tooltipRequirement = description
     checkbox:SetScript("OnClick", function(self)
         VIC.settings[key] = self:GetChecked() and true or false
+        VIC:RefreshOptions()
     end)
     checkbox.settingKey = key
     controls[#controls + 1] = checkbox
@@ -74,37 +70,37 @@ local function CreateStepper(panel, key, label, minimum, maximum, step, anchor)
     return row
 end
 
-local function CreateModifierCycle(panel, anchor)
+local function CreateModifierCycle(panel, anchor, key, caption, choices, labels, buttonName)
     local row = CreateFrame("Frame", nil, panel)
     row:SetSize(460, 28)
     row:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -14)
 
     local label = row:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     label:SetPoint("LEFT", 0, 0)
-    label:SetText("Expand modifier key:")
+    label:SetText(caption)
 
-    local btn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+    local btn = CreateFrame("Button", buttonName, row, "UIPanelButtonTemplate")
     btn:SetSize(180, 22)
     btn:SetPoint("LEFT", 240, 0)
 
     local function GetCurrentIndex()
-        local current = VIC.settings.modifierKey or "ALT"
-        for i, k in ipairs(MODIFIER_KEYS) do
+        local current = VIC.settings[key] or VIC.defaults[key]
+        for i, k in ipairs(choices) do
             if k == current then return i end
         end
         return 1
     end
 
     local function UpdateButton()
-        local current = VIC.settings.modifierKey or "ALT"
-        btn:SetText(current == "NONE" and "Always Expanded" or ("Hold " .. current))
+        local current = VIC.settings[key] or VIC.defaults[key]
+        btn:SetText(labels[current] or labels[VIC.defaults[key]])
     end
 
     btn:SetScript("OnClick", function()
         local idx = GetCurrentIndex()
-        idx = (idx % #MODIFIER_KEYS) + 1
-        VIC.settings.modifierKey = MODIFIER_KEYS[idx]
-        UpdateButton()
+        idx = (idx % #choices) + 1
+        VIC.settings[key] = choices[idx]
+        VIC:RefreshOptions()
     end)
 
     row.UpdateButton = UpdateButton
@@ -126,6 +122,7 @@ function VIC:RefreshOptions()
             ctrl.UpdateButton()
         end
     end
+    if self.RefreshVendorTooltips then self:RefreshVendorTooltips(true) end
 end
 
 function VIC:OpenOptions()
@@ -158,7 +155,12 @@ function VIC:CreateOptionsPanel()
     if self.client == "forever" then
         recording = CreateCheckbox(panel, "recordMerchants", "Learn from merchants I visit", "Saves observed Forever offers locally. Sharing is manual.", enabled)
     end
-    local modCycle = CreateModifierCycle(panel, recording)
+    local modCycle = CreateModifierCycle(panel, recording, "modifierKey", "Keyboard expansion modifier:",
+        VIC.keyboardModifiers, KEYBOARD_LABELS, "VICKeyboardModifier")
+    if self.client == "forever" then
+        modCycle = CreateModifierCycle(panel, modCycle, "controllerModifier", "Controller expansion modifier:",
+            VIC.controllerModifiers, CONTROLLER_LABELS, "VICControllerModifier")
+    end
     local maxVendors = CreateStepper(panel, "maxVendors", "Max vendors shown:", 1, 10, 1, modCycle)
     local closestFirst = CreateCheckbox(panel, "showClosestFirst", "Sort closest vendors first", "Shows vendors in your current zone and nearest coordinates first.", maxVendors)
     local coords = CreateCheckbox(panel, "showCoordinates", "Show vendor coordinates", "Shows (x, y) coordinates for vendor locations.", closestFirst)
@@ -221,6 +223,8 @@ function VIC:OptionsInitialize()
                 metadata.client or "Unknown", metadata.source or "Unknown",
                 metadata.dataAsOf or "Unknown", metadata.build or "Unknown")
             if VIC.client == "forever" then
+                VIC:Print("Controller modifier: %s (observes held input; game controls are unchanged).",
+                    CONTROLLER_LABELS[VIC.settings.controllerModifier] or "Controller off")
                 local personalItems, personalVendors = 0, 0
                 if VIC.CountPersonalItems then personalItems, personalVendors = VIC:CountPersonalItems() end
                 VIC:Print("Personal observations: %d items, %d vendors. Recording: %s.", personalItems, personalVendors,

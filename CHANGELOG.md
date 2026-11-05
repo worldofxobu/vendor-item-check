@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed a Lua syntax error in `Tooltip.lua` caused by invalid method existence check syntax (`tooltip:NumLines and`).
 
 ### Added
+- Contextual controller expansion on Forever (LT by default), with separate remappable keyboard and controller modifiers, controller-only/off modes, and hints that follow the selected inputs.
 - Optional manual JSON exports of Forever observations, with explicit sharing terms and private character/account data excluded.
 - Reviewed community contributions in bundled data builds and weekly update PRs, requiring three independent contributors and retaining price context and source checksums.
 - Automatic local merchant recording on Forever, with dated observations, character-specific purchase quotes, exact batch quantities, recording controls, and 30-day expiry.
