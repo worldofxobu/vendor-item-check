@@ -16,11 +16,15 @@ Vendor Item Check is a lightweight, zero-dependency addon for **World of Warcraf
 
 Forever uses [Everloot's public player observations](https://everloot.app/docs/api), with at least three independent reporters required for an item/vendor relation. Classic inventories, coordinates, faction access, and prices are never substituted for missing Forever data.
 
-**The bundled snapshot dated November 5, 2026 contains zero qualifying Forever vendor offers.** The live source had NPC sightings but no vendor inventory reports when checked. Until qualifying reports become available, Forever item tooltips will have no vendor section. This does not mean the item cannot be bought.
+<!-- forever-coverage:start -->
+**Bundled Forever coverage:** 0 confirmed items and 0 vendors. Source observations as of `2026-11-05T03:10:11.401Z`. No qualifying offers are bundled; Forever tooltips remain unchanged for unknown items.
+<!-- forever-coverage:end -->
+
+Missing data does not mean the item cannot be bought.
 
 Names and locations require their own corroboration. Unknown locations stay unknown; approximate coordinates are marked `~`. Faction access is unrecorded by the source and is not inferred from NPC reaction toward one player. Records expire when fewer than three reports remain within 30 days. The source does not record exact client builds for these observations, so post-launch confirmation does not guarantee a match to the latest hotfix.
 
-Run `/vic status` to see the selected dataset, source date, build information, and bundled item/vendor counts. Fresh data reaches players through addon updates; no companion app or additional addon is required. Updates cannot guarantee current stock or availability to your character.
+Run `/vic status` to see the selected dataset, source date, build information, and bundled item/vendor counts. Data refreshes are proposed weekly for maintainer review; accepted data reaches players through addon updates. No companion app or additional addon is required. Updates cannot guarantee current stock or availability to your character.
 
 Data from [Everloot](https://everloot.app), [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Attribution and data terms are included in `DATA_LICENSE.md` inside the addon folder.
 

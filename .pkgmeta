@@ -6,6 +6,7 @@ move-folders:
     VendorItemCheck/VendorItemCheck: VendorItemCheck
 
 ignore:
+    - .github
     - tests
     - scripts
     - README.md
