@@ -1,7 +1,9 @@
--- Standalone smoke test for Vendor Item Check in modern / Forever client environment.
+-- Standalone smoke test for Vendor Item Check with Classic data and modern tooltip APIs.
 -- Run with: lua tests/smoke.lua
 
 unpack = unpack or table.unpack
+
+function GetBuildInfo() return "1.15.9", "70003", "", 11509 end
 
 local frames = {}
 local messages = {}
@@ -136,6 +138,7 @@ local addonName = "VendorItemCheck"
 
 local chunkData = assert(loadfile("VendorItemCheck/Data.lua"))
 chunkData(addonName, VIC)
+assert(loadfile("VendorItemCheck/DataForever.lua"))(addonName, VIC)
 
 local chunkCore = assert(loadfile("VendorItemCheck/Core.lua"))
 chunkCore(addonName, VIC)

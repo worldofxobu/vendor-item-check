@@ -14,6 +14,30 @@ VIC.defaults = {
     showFaction = true,
 }
 
+function VIC:SelectDataset()
+    local client = "unknown"
+    if GetBuildInfo then
+        local ok, version, _, _, interface = pcall(GetBuildInfo)
+        if ok then
+            interface = tonumber(interface)
+            if (interface and interface >= 16000 and interface < 17000) or
+                (type(version) == "string" and string.match(version, "^1%.60%.")) then
+                client = "forever"
+            elseif (interface and interface >= 11500 and interface < 11600) or
+                (type(version) == "string" and string.match(version, "^1%.15%.")) then
+                client = "classic"
+            end
+        end
+    end
+    self.client = client
+    local dataset = self.Datasets and self.Datasets[client]
+    self.Vendors = dataset and dataset.vendors or {}
+    self.Items = dataset and dataset.items or {}
+    self.dataMetadata = dataset and dataset.metadata or {
+        client = "Unsupported or unknown client", source = "None", dataAsOf = "Unknown", build = "Unknown",
+    }
+end
+
 function VIC:Print(formatString, ...)
     local message = string.format(formatString, ...)
     local chatFrame = DEFAULT_CHAT_FRAME or ChatFrame1
@@ -29,7 +53,7 @@ function VIC:GetPlayerFaction()
             self.playerFaction = factionGroup
         end
     end
-    return self.playerFaction or "Alliance"
+    return self.playerFaction
 end
 
 function VIC:GetPlayerLocation()
@@ -61,10 +85,16 @@ local function NormalizeZone(zone)
 end
 
 function VIC:IsVendorFriendly(vendorFaction, playerFaction)
+    if vendorFaction == "?" then
+        return true -- Availability is reported separately; this is not a neutral faction tag.
+    end
     if not vendorFaction or vendorFaction == "N" or vendorFaction == "AH" or vendorFaction == "" then
         return true
     end
 
+    if not playerFaction then
+        return true -- The player's faction is not available yet.
+    end
     local isAlliance = (playerFaction == "Alliance")
     if vendorFaction == "A" and isAlliance then
         return true
@@ -83,7 +113,7 @@ function VIC:GetItemVendors(itemID)
     local itemData = self.Items[itemID]
     if not itemData then
         -- Optional external integration: Informant
-        if Informant and Informant.GetItem then
+        if self.client == "classic" and Informant and Informant.GetItem then
             local inf = Informant.GetItem(itemID)
             if inf and inf.buy then
                 itemData = { v = {}, p = inf.buy }
@@ -102,17 +132,38 @@ function VIC:GetItemVendors(itemID)
 
     for _, vendorID in ipairs(itemData.v) do
         local rawVendor = self.Vendors and self.Vendors[vendorID]
+        local offer = itemData.offers and itemData.offers[vendorID]
+        if self.client == "forever" then
+            if not offer or not offer.expires or not offer.reporters or offer.reporters < 3 or
+                (time and time() > offer.expires) then
+                rawVendor = nil
+            end
+        end
         if rawVendor then
             totalVendors = totalVendors + 1
             local vFac = rawVendor[3] or "N"
             if self:IsVendorFriendly(vFac, playerFaction) then
+                local locationValid = self.client ~= "forever" or
+                    (rawVendor.locationExpires and (not time or time() <= rawVendor.locationExpires))
+                local nameValid = self.client ~= "forever" or
+                    (rawVendor.nameExpires and (not time or time() <= rawVendor.nameExpires))
+                local zone = locationValid and rawVendor[2] or "Location unknown"
+                if locationValid and rawVendor.mapID and C_Map and C_Map.GetMapInfo then
+                    local ok, info = pcall(C_Map.GetMapInfo, rawVendor.mapID)
+                    if ok and info and info.name then
+                        zone = info.name
+                    end
+                end
                 friendlyVendors[#friendlyVendors + 1] = {
                     id = vendorID,
-                    name = rawVendor[1] or ("Vendor " .. vendorID),
-                    zone = rawVendor[2] or "Unknown",
+                    name = nameValid and rawVendor[1] or ("Vendor " .. vendorID),
+                    zone = zone,
                     faction = vFac,
-                    x = rawVendor[4] or 0.0,
-                    y = rawVendor[5] or 0.0,
+                    x = locationValid and rawVendor[4] or 0.0,
+                    y = locationValid and rawVendor[5] or 0.0,
+                    mapID = locationValid and rawVendor.mapID or nil,
+                    approximate = rawVendor.approximate,
+                    offer = offer,
                 }
             else
                 enemyVendorsCount = enemyVendorsCount + 1
@@ -125,9 +176,10 @@ function VIC:GetItemVendors(itemID)
     return {
         vendors = friendlyVendors,
         totalCount = #friendlyVendors,
-        price = itemData.p,
+        -- Forever's current source omits quantities, currencies and discounts.
+        price = self.client == "classic" and itemData.p or nil,
         enemyOnly = isEnemyOnly,
-        enemyFaction = (playerFaction == "Alliance") and "Horde" or "Alliance",
+        enemyFaction = playerFaction and ((playerFaction == "Alliance") and "Horde" or "Alliance") or nil,
     }
 end
 
@@ -143,6 +195,9 @@ function VIC:SortVendorsByProximity(vendors, playerZone, playerX, playerY)
         local normVZone = NormalizeZone(v.zone)
         local isSameZone = (normPlayerZone ~= "" and normPlayerZone == normVZone)
 
+        if v.mapID and C_Map and C_Map.GetBestMapForUnit then
+            isSameZone = C_Map.GetBestMapForUnit("player") == v.mapID
+        end
         if isSameZone then
             if hasPlayerCoords and v.x > 0 and v.y > 0 then
                 local dx = v.x - playerX
@@ -230,6 +285,7 @@ eventFrame:RegisterEvent("PLAYER_LOGIN")
 
 eventFrame:SetScript("OnEvent", function(_, event, arg1)
     if event == "ADDON_LOADED" and arg1 == addonName then
+        VIC:SelectDataset()
         VIC:InitializeDB()
         if VIC.OptionsInitialize then
             VIC:OptionsInitialize()

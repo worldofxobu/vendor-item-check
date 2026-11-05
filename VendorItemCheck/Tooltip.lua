@@ -69,7 +69,9 @@ function VIC:IsExpanded()
 end
 
 local function GetFactionTag(factionCode)
-    if factionCode == "A" then
+    if factionCode == "?" then
+        return "|cff888888[Access unverified]|r"
+    elseif factionCode == "A" then
         return "|cff0070dd[Alliance]|r"
     elseif factionCode == "H" then
         return "|cffc41e3a[Horde]|r"
@@ -141,7 +143,7 @@ function VIC:AddVendorSection(tooltip, itemID, itemInfo)
             local rightParts = {}
             local zoneStr = v.zone or "Azeroth"
             if settings.showCoordinates and v.x > 0 and v.y > 0 then
-                zoneStr = string.format("%s (%.1f, %.1f)", zoneStr, v.x, v.y)
+                zoneStr = string.format("%s (%s%.1f, %.1f)", zoneStr, v.approximate and "~" or "", v.x, v.y)
             end
             rightParts[#rightParts + 1] = "|cffb0b0b0" .. zoneStr .. "|r"
 
@@ -158,6 +160,10 @@ function VIC:AddVendorSection(tooltip, itemID, itemInfo)
                 string.format("  |cff888888+%d more vendors across Azeroth|r", #vendors - count),
                 0.6, 0.6, 0.6
             )
+        end
+        if self.client == "forever" then
+            tooltip:AddLine("|cff888888Access unverified; price unavailable.|r", 0.6, 0.6, 0.6)
+            tooltip:AddLine("|cff888888Everloot: https://everloot.app (CC BY-SA 4.0)|r", 0.6, 0.6, 0.6)
         end
     end
 
@@ -176,7 +182,11 @@ local function ProcessItemTooltip(tooltip, tooltipData)
         return
     end
 
-    local _, itemLink = tooltip:GetItem()
+    local itemLink
+    if tooltip.GetItem then
+        local _, link = tooltip:GetItem()
+        itemLink = link
+    end
     tooltip._vicItemID = itemID
     tooltip._vicLink = itemLink
     tooltip._vicWasExpanded = VIC:IsExpanded()
@@ -195,7 +205,10 @@ local function RefreshTooltip(tooltip)
 
     local link = tooltip._vicLink
     if not link then
-        local _, itemLink = tooltip:GetItem()
+        local _, itemLink
+        if tooltip.GetItem then
+            _, itemLink = tooltip:GetItem()
+        end
         link = itemLink
     end
 

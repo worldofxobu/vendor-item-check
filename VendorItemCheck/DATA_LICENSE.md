@@ -1,0 +1,36 @@
+# Vendor data attribution
+
+## Forever
+
+Data from Everloot (https://everloot.app), CC BY-SA 4.0.
+
+Credit: Everloot contributors. Source: https://everloot.app/database
+
+The public observation snapshot and derived Forever database are distributed under
+Creative Commons Attribution-ShareAlike 4.0 International:
+https://creativecommons.org/licenses/by-sa/4.0/
+
+Legal text: https://creativecommons.org/licenses/by-sa/4.0/legalcode
+
+Changes made here: exclude pre-launch and old observations, require independent
+corroboration, omit unconfirmed fields, aggregate vendor/item relations, round
+confirmed locations, retain raw price evidence without treating it as a unit
+purchase price, and convert to Lua. Provenance and a source checksum are included
+in DataForever.lua. Reproducible inputs are in the source repository's
+scripts/data/forever-source.json. An empty dataset contains no confirmed offers.
+
+Everloot's software is not included. This data licence does not change the
+licence of Vendor Item Check's independently written addon or build code.
+
+## Classic Era
+
+The historical Classic registry retains its existing sources:
+
+- pfQuest, by Shagu: https://github.com/shagu/pfQuest
+- wow-classic-items, by nexus-devs: https://github.com/nexus-devs/wow-classic-items
+
+Its exact observation date and client build were not recorded by the original
+pipeline. These records are not evidence of Forever inventories or prices.
+
+World of Warcraft and its game content belong to Blizzard Entertainment.
+Vendor Item Check is an independent community addon.

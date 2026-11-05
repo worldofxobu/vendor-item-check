@@ -31,6 +31,7 @@ Never upload account credentials, authentication tokens, or private server login
    ```sh
    lua tests/smoke.lua
    lua tests/classic_smoke.lua
+   lua tests/forever_smoke.lua
    ```
 
 4. Update `CHANGELOG.md` for user-facing changes under `[Unreleased]`.
@@ -43,12 +44,99 @@ Never upload account credentials, authentication tokens, or private server login
 - Keep tooltip text concise and consistent with the default WoW interface.
 - Guard client API calls that may be absent or temporarily unavailable across client flavors.
 
-## Development & Data Pipeline
+## Vendor data pipeline
 
-The addon database is compiled into `VendorItemCheck/Data.lua` using the build script:
+The addon ships separate Classic Era and Forever datasets. Runtime code selects the
+dataset using guarded client version/interface APIs. Unsupported or unknown clients
+receive an empty dataset. Saved settings remain compatible.
+
+### Forever source and confidence
+
+Source: [Everloot public corpus](https://everloot.app/docs/api), filtered to `vendor`
+and `npc_sighting`. This is a community observation feed, not Blizzard's vendor
+database. [Record schemas](https://everloot.app/schema/index.json) define the fields.
+Data from Everloot (https://everloot.app), CC BY-SA 4.0. Keep its credit and licence
+with the source snapshot, generated data, documentation, and installable package.
+See `VendorItemCheck/DATA_LICENSE.md`.
+
+Require three distinct public install pseudonyms; repeated observations from one
+install do not count as corroboration. For merchant inventory, use the latest
+snapshot from each reporter for each NPC. Conflicting tied snapshots are withheld.
+Names and approximate map-coordinate cells require independent corroboration.
+Player-only positions never become vendor pins. NPC reaction does not establish
+Alliance/Horde/neutral accessibility. Missing fields remain unknown.
+
+Exclude records before launch (2026-11-04 23:00 UTC), observations older than 30 days
+relative to the source snapshot, explicit beta channels, and explicit non-Forever
+builds. The current feed does not include build/channel fields: post-launch times
+in this Forever-only feed are the available evidence, not exact-build verification.
+Do not describe it as a complete or authoritative current inventory.
+
+The current vendor schema exposes `priceCopper` but no purchase quantity, currency
+costs, or discount context. Corroborated raw price evidence stays on each vendor/item
+offer with `priceContext = "unknown"`; runtime must not display it as a unit price.
+Do not infer prices from sell prices, Classic data, or Informant on Forever.
+
+Offers, names and locations expire independently when fewer than three reporters
+remain within the 30-day window. Runtime checks use the client clock when available.
+Unknown items have no vendor section; absence is never proof that no vendor exists.
+
+### Reproduce or refresh Forever data
+
+Python standard library only; no runtime addon dependencies are added.
 
 ```sh
+# Default: reproduce DataForever.lua from the committed source snapshot, offline.
 python3 scripts/build_data.py
+# Verify exact deterministic output without writing.
+python3 scripts/build_data.py --check
+# Explicit network refresh, validation, change summary, and regeneration.
+python3 scripts/build_data.py --refresh
 ```
 
-This ensures the addon runs with zero dependencies for players while maintaining a completely reproducible build pipeline.
+Review and commit the source snapshot and generated Lua together. The generated
+metadata includes source date, confidence policy and SHA-256 of the canonical
+snapshot; each page retains its source URL and attribution. Raw public observations
+remain under CC BY-SA 4.0. `--snapshot PATH` and `--output PATH` support isolated
+review and experiments. Do not commit synthetic test records as addon data.
+
+The importer validates every page and rejects changing snapshot dates/totals,
+incomplete pagination, missing attribution, unavailable storage and malformed
+records. It follows only the public corpus host/path, respects rate-limit failures,
+and caps a refresh at 25 pages to stay below the anonymous hourly allowance. A fresh
+network import must have a source date within two days. Failures before validation
+leave existing files untouched. A populated-to-empty refresh requires manual review;
+reproduce a separately reviewed snapshot offline if that removal is intentional.
+Unchanged vendor data leaves the existing snapshot and generated file unchanged.
+
+Initial source check (2026-11-05, data as of 03:10:11.401 UTC): 449 NPC sightings,
+zero vendor reports, zero qualifying item/vendor offers. Keep coverage statements
+in README accurate when new datasets are accepted.
+
+### Classic Era reference data
+
+`Data.lua` retains the original 1,931-item/956-vendor historical registry. Its exact
+source date/build was not recorded; its prices are reference values, not exact
+merchant quotes. The legacy generator is retained as `scripts/build_classic_data.py`
+and uses `scripts/.cache`. It is not part of the Forever refresh. Rebuilding Classic
+requires separately reviewing the upstream data, licences, cached inputs and diff;
+do not silently rebuild it while updating Forever.
+
+### In-game acceptance checklist
+
+Automated checks do not constitute in-game verification. Record client version,
+build, interface and dataset date when performing these checks on each client:
+
+- Confirm loading, `/vic status`, settings changes and saved-settings persistence.
+- Hover indexed items in bags, item-link tooltips and the Auction House; hold and
+  release each configured modifier and check for one compact/expanded section.
+- Compare vendor identity and location to the merchant in game. Confirm unknown
+  faction access and approximate locations are labelled accurately.
+- Confirm Forever never shows Classic-only vendors or ambiguous prices. When a
+  future source supplies unit prices, verify purchase quantities, alternate costs,
+  reputation discounts and vendor-specific differences before enabling display.
+- Verify Classic faction filtering, price references and legacy tooltip hooks.
+
+Live source availability alone does not verify in-game behavior. Until the Forever
+feed has qualifying offers, populated Forever rendering is tested with synthetic
+fixtures only.

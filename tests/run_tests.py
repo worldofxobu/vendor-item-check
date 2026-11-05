@@ -36,7 +36,7 @@ def validate_toc_files():
                 continue
             if line.startswith("## Interface:"):
                 has_interface = True
-                assert "16001" in line or "11509" in line, f"Missing target interface in {toc_path}"
+                assert "16001" in line and "11509" in line, f"Missing target interface in {toc_path}"
             elif line.startswith("## Title:"):
                 has_title = True
             elif not line.startswith("##"):
@@ -100,11 +100,13 @@ def validate_all_lua_syntax():
     print("[2/5] Validating Lua code structure and syntax...")
     lua_files = [
         os.path.join(ADDON_DIR, "Data.lua"),
+        os.path.join(ADDON_DIR, "DataForever.lua"),
         os.path.join(ADDON_DIR, "Core.lua"),
         os.path.join(ADDON_DIR, "Tooltip.lua"),
         os.path.join(ADDON_DIR, "Options.lua"),
         os.path.join(ROOT_DIR, "tests", "smoke.lua"),
         os.path.join(ROOT_DIR, "tests", "classic_smoke.lua"),
+        os.path.join(ROOT_DIR, "tests", "forever_smoke.lua"),
     ]
     for path in lua_files:
         assert os.path.exists(path), f"File missing: {path}"
@@ -289,6 +291,9 @@ def main():
     items, vendors = validate_data_integrity()
     test_addon_logic_simulation(items, vendors)
     validate_repository_metadata()
+    print("Running Forever data importer tests...")
+    subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-p", "test_*.py"],
+                   cwd=ROOT_DIR, check=True)
     print("========================================")
     print("   ALL VERIFICATIONS PASSED SUCCESSFULLY!")
     print("========================================")

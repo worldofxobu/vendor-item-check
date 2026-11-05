@@ -1,4 +1,4 @@
-## Interface: 11509, 11508, 11507, 11506, 11505, 11504, 11503, 11502, 11501, 11500
+## Interface: 16001, 11509, 11508, 11507, 11506, 11505, 11504, 11503, 11502, 11501, 11500
 ## Title: Vendor Item Check
 ## Notes: Shows if an item can be bought at a vendor, with expandable vendor locations on Alt.
 ## Author: Xobu
@@ -7,6 +7,7 @@
 ## OptionalDeps: Informant
 
 Data.lua
+DataForever.lua
 Core.lua
 Tooltip.lua
 Options.lua

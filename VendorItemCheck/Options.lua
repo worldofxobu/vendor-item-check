@@ -212,6 +212,14 @@ function VIC:OptionsInitialize()
                 VIC.settings.enabled and "Yes" or "No",
                 VIC.settings.modifierKey,
                 VIC.settings.maxVendors)
+            local metadata = VIC.dataMetadata or {}
+            VIC:Print("Dataset: %s. Source: %s. Data as of: %s. Build: %s.",
+                metadata.client or "Unknown", metadata.source or "Unknown",
+                metadata.dataAsOf or "Unknown", metadata.build or "Unknown")
+            if VIC.client == "forever" then
+                VIC:Print("Confirmed offers only; missing data is unknown. Prices unavailable: quantity and discount context unrecorded.")
+                VIC:Print("%s", metadata.credit or "Data from Everloot (https://everloot.app), CC BY-SA 4.0.")
+            end
         elseif cmd == "max" and tonumber(arg) then
             local n = math.max(1, math.min(10, tonumber(arg)))
             VIC.settings.maxVendors = n
