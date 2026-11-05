@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed a Lua syntax error in `Tooltip.lua` caused by invalid method existence check syntax (`tooltip:NumLines and`).
 
 ### Added
+- Automatic local merchant recording on Forever, with dated observations, character-specific purchase quotes, exact batch quantities, recording controls, and 30-day expiry.
 - Forever vendor snapshot: 0 confirmed items and 0 vendors (source observations as of 2026-11-05T03:10:11.401Z).
 - Weekly review PRs for confirmed Forever vendor data, with automatic coverage documentation updates and checks before proposing changes.
 - Separate Forever dataset using corroborated live Everloot observations, with source metadata in `/vic status`, independent expiry, and explicit unknown access/location handling.

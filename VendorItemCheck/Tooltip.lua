@@ -105,6 +105,8 @@ function VIC:AddVendorSection(tooltip, itemID, itemInfo)
     local priceText = ""
     if settings.showPrice and itemInfo.price and itemInfo.price > 0 then
         priceText = ": " .. (self:FormatMoney(itemInfo.price) or "")
+    elseif settings.showPrice and not isExpanded and itemInfo.observedPriceText then
+        priceText = ": " .. itemInfo.observedPriceText .. " |cff888888(observed)|r"
     end
 
     if not isExpanded then
@@ -148,7 +150,18 @@ function VIC:AddVendorSection(tooltip, itemID, itemInfo)
             rightParts[#rightParts + 1] = "|cffb0b0b0" .. zoneStr .. "|r"
 
             if settings.showFaction then
-                rightParts[#rightParts + 1] = GetFactionTag(v.faction)
+                rightParts[#rightParts + 1] = v.accessObserved and "|cff888888[Observed access]|r" or GetFactionTag(v.faction)
+            end
+
+            if v.personal then
+                local stamp = date and date("!%Y-%m-%d", v.observedAt) or "previous visit"
+                rightParts[#rightParts + 1] = "|cff888888Observed " .. stamp .. "|r"
+                if settings.showPrice and v.quoteText then
+                    rightParts[#rightParts + 1] = v.quoteText
+                elseif settings.showPrice and v.alternateCost then
+                    rightParts[#rightParts + 1] = "Alternate cost; see merchant"
+                end
+                if v.stock == 0 then rightParts[#rightParts + 1] = "Out of stock when observed" end
             end
 
             local right = table.concat(rightParts, " ")
@@ -162,8 +175,13 @@ function VIC:AddVendorSection(tooltip, itemID, itemInfo)
             )
         end
         if self.client == "forever" then
-            tooltip:AddLine("|cff888888Access unverified; price unavailable.|r", 0.6, 0.6, 0.6)
-            tooltip:AddLine("|cff888888Everloot: https://everloot.app (CC BY-SA 4.0)|r", 0.6, 0.6, 0.6)
+            local hasBundled = false
+            for _, vendor in ipairs(vendors) do if not vendor.personal then hasBundled = true end end
+            if hasBundled then
+                tooltip:AddLine("|cff888888Bundled access unverified; no personal price quote.|r", 0.6, 0.6, 0.6)
+                local credit = self.dataMetadata and self.dataMetadata.credit or "Everloot: https://everloot.app (CC BY-SA 4.0)"
+                tooltip:AddLine("|cff888888" .. credit .. "|r", 0.6, 0.6, 0.6)
+            end
         end
     end
 

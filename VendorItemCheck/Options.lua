@@ -154,7 +154,11 @@ function VIC:CreateOptionsPanel()
     subtitle:SetText("Enhances item tooltips by showing if an item can be bought from an NPC vendor.")
 
     local enabled = CreateCheckbox(panel, "enabled", "Enable Vendor Item Check", "Show vendor information on item tooltips.", subtitle)
-    local modCycle = CreateModifierCycle(panel, enabled)
+    local recording = enabled
+    if self.client == "forever" then
+        recording = CreateCheckbox(panel, "recordMerchants", "Learn from merchants I visit", "Saves observed Forever offers locally. Sharing is manual.", enabled)
+    end
+    local modCycle = CreateModifierCycle(panel, recording)
     local maxVendors = CreateStepper(panel, "maxVendors", "Max vendors shown:", 1, 10, 1, modCycle)
     local closestFirst = CreateCheckbox(panel, "showClosestFirst", "Sort closest vendors first", "Shows vendors in your current zone and nearest coordinates first.", maxVendors)
     local coords = CreateCheckbox(panel, "showCoordinates", "Show vendor coordinates", "Shows (x, y) coordinates for vendor locations.", closestFirst)
@@ -217,9 +221,21 @@ function VIC:OptionsInitialize()
                 metadata.client or "Unknown", metadata.source or "Unknown",
                 metadata.dataAsOf or "Unknown", metadata.build or "Unknown")
             if VIC.client == "forever" then
-                VIC:Print("Confirmed offers only; missing data is unknown. Prices unavailable: quantity and discount context unrecorded.")
+                local personalItems, personalVendors = 0, 0
+                if VIC.CountPersonalItems then personalItems, personalVendors = VIC:CountPersonalItems() end
+                VIC:Print("Personal observations: %d items, %d vendors. Recording: %s.", personalItems, personalVendors,
+                    VIC.observations and VIC.settings.recordMerchants and "On" or "Off/unavailable")
+                VIC:Print("Personal prices are observed quotes for this character. Missing data is unknown.")
                 VIC:Print("%s", metadata.credit or "Data from Everloot (https://everloot.app), CC BY-SA 4.0.")
             end
+        elseif cmd == "recording" then
+            if VIC.client ~= "forever" then VIC:Print("Merchant recording is available on Forever.")
+            elseif arg == "on" or arg == "off" then
+                VIC.settings.recordMerchants = arg == "on"
+                VIC:RefreshOptions()
+                if VIC.ScanMerchant then VIC:ScanMerchant() end
+                VIC:Print("Merchant recording is %s.", arg)
+            else VIC:Print("Usage: /vic recording on|off") end
         elseif cmd == "max" and tonumber(arg) then
             local n = math.max(1, math.min(10, tonumber(arg)))
             VIC.settings.maxVendors = n
@@ -231,6 +247,7 @@ function VIC:OptionsInitialize()
             VIC:Print("  /vic toggle - Toggle enabled state")
             VIC:Print("  /vic status - Display index count and configuration")
             VIC:Print("  /vic max <1-10> - Set maximum vendors shown in tooltip")
+            VIC:Print("  /vic recording on|off - Learn from Forever merchants")
         else
             VIC:OpenOptions()
         end

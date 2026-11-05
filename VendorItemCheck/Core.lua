@@ -6,6 +6,7 @@ VIC.version = "0.1.0"
 
 VIC.defaults = {
     enabled = true,
+    recordMerchants = true,
     modifierKey = "ALT",      -- "ALT", "SHIFT", "CTRL", "NONE"
     maxVendors = 4,           -- 1 to 10
     showClosestFirst = true,
@@ -111,6 +112,8 @@ function VIC:GetItemVendors(itemID)
     end
 
     local itemData = self.Items[itemID]
+    local bundledItem = itemData ~= nil
+    if not itemData and self.client == "forever" then itemData = { v = {} } end
     if not itemData then
         -- Optional external integration: Informant
         if self.client == "classic" and Informant and Informant.GetItem then
@@ -173,7 +176,7 @@ function VIC:GetItemVendors(itemID)
 
     local isEnemyOnly = (#friendlyVendors == 0 and enemyVendorsCount > 0)
 
-    return {
+    local result = {
         vendors = friendlyVendors,
         totalCount = #friendlyVendors,
         -- Forever's current source omits quantities, currencies and discounts.
@@ -181,6 +184,11 @@ function VIC:GetItemVendors(itemID)
         enemyOnly = isEnemyOnly,
         enemyFaction = playerFaction and ((playerFaction == "Alliance") and "Horde" or "Alliance") or nil,
     }
+    if self.client == "forever" and self.MergePersonalVendors then
+        self:MergePersonalVendors(itemID, result)
+    end
+    if not bundledItem and result.totalCount == 0 and not result.enemyOnly then return nil end
+    return result
 end
 
 function VIC:SortVendorsByProximity(vendors, playerZone, playerX, playerY)
@@ -287,6 +295,7 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
     if event == "ADDON_LOADED" and arg1 == addonName then
         VIC:SelectDataset()
         VIC:InitializeDB()
+        if VIC.MerchantInitialize then VIC:MerchantInitialize() end
         if VIC.OptionsInitialize then
             VIC:OptionsInitialize()
         end

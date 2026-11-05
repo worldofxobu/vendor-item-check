@@ -9,5 +9,6 @@
 Data.lua
 DataForever.lua
 Core.lua
+Merchant.lua
 Tooltip.lua
 Options.lua

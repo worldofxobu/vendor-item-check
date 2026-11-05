@@ -32,6 +32,7 @@ Never upload account credentials, authentication tokens, or private server login
    lua tests/smoke.lua
    lua tests/classic_smoke.lua
    lua tests/forever_smoke.lua
+   lua tests/merchant_smoke.lua
    ```
 
 4. Update `CHANGELOG.md` for user-facing changes under `[Unreleased]`.
@@ -51,6 +52,24 @@ dataset using guarded client version/interface APIs. Unsupported or unknown clie
 receive an empty dataset. Saved settings remain compatible.
 
 ### Forever source and confidence
+
+Personal observations are a separate layer from the corroborated bundled database.
+`Merchant.lua` records positive merchant-slot evidence while the window is open,
+using guarded modern APIs or legacy fallbacks. Pending links retry only for the
+same merchant session. Missing/filtered slots never prove an inventory removal.
+The latest offer per NPC/item/character is saved under the versioned
+`VendorItemCheckDB.observations` subtree; existing flat settings remain compatible.
+Unknown future observation schemas are preserved and recording stays unavailable.
+
+Recording is on by default on Forever and stops when either the recording setting
+or the addon is disabled. Indexes are rebuilt and stale observations pruned at
+startup, login and merchant opening. Personal records expire after 30 days; no
+current clock means no personal evidence is used. Character GUIDs stay local.
+Other characters can see observed inventory, but never inherit a personal price or
+an access guarantee. Merchant quotes retain quantity, stock, alternate costs,
+discount context when exposed, and the exact observed build. Unknown price context
+is never promoted to a standard buy price. A newer personal offer supersedes an
+overlapping older bundled offer for the observing character.
 
 Source: [Everloot public corpus](https://everloot.app/docs/api), filtered to `vendor`
 and `npc_sighting`. This is a community observation feed, not Blizzard's vendor
@@ -163,14 +182,15 @@ build, interface and dataset date when performing these checks on each client:
   release each configured modifier and check for one compact/expanded section.
 - Compare vendor identity and location to the merchant in game. Confirm unknown
   faction access and approximate locations are labelled accurately.
-- Confirm Forever never shows Classic-only vendors or ambiguous prices. When a
-  future source supplies unit prices, verify purchase quantities, alternate costs,
-  reputation discounts and vendor-specific differences before enabling display.
+- Confirm Forever never shows Classic-only vendors or ambiguous prices. Check
+  personal quotes against merchant purchase quantities, alternate costs, reputation
+  discounts and vendor-specific differences. Switch characters and confirm quotes
+  do not transfer. Disable recording and confirm existing observations survive.
 - Verify Classic faction filtering, price references and legacy tooltip hooks.
 
-Live source availability alone does not verify in-game behavior. Until the Forever
-feed has qualifying offers, populated Forever rendering is tested with synthetic
-fixtures only.
+Live source availability alone does not verify in-game behavior. Populated Forever
+rendering and merchant events are tested with synthetic fixtures until the in-game
+checklist is performed.
 
 Importer tests use fixed observation times for reproducibility and current source
 timestamps when exercising network-refresh freshness checks. Keep these separate

@@ -9,11 +9,13 @@ local VIC = {}
 assert(loadfile("VendorItemCheck/Data.lua"))("VendorItemCheck", VIC)
 assert(loadfile("VendorItemCheck/DataForever.lua"))("VendorItemCheck", VIC)
 assert(loadfile("VendorItemCheck/Core.lua"))("VendorItemCheck", VIC)
+assert(loadfile("VendorItemCheck/Merchant.lua"))("VendorItemCheck", VIC)
 assert(loadfile("VendorItemCheck/Tooltip.lua"))("VendorItemCheck", VIC)
 assert(loadfile("VendorItemCheck/Options.lua"))("VendorItemCheck", VIC)
 VendorItemCheckDB = { enabled = true, maxVendors = 3, modifierKey = "ALT", customSetting = "preserve" }
 VIC:SelectDataset()
 VIC:InitializeDB()
+VIC:MerchantInitialize()
 VIC:TooltipInitialize()
 VIC:OptionsInitialize()
 assert(VIC.client == "forever")

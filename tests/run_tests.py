@@ -102,11 +102,13 @@ def validate_all_lua_syntax():
         os.path.join(ADDON_DIR, "Data.lua"),
         os.path.join(ADDON_DIR, "DataForever.lua"),
         os.path.join(ADDON_DIR, "Core.lua"),
+        os.path.join(ADDON_DIR, "Merchant.lua"),
         os.path.join(ADDON_DIR, "Tooltip.lua"),
         os.path.join(ADDON_DIR, "Options.lua"),
         os.path.join(ROOT_DIR, "tests", "smoke.lua"),
         os.path.join(ROOT_DIR, "tests", "classic_smoke.lua"),
         os.path.join(ROOT_DIR, "tests", "forever_smoke.lua"),
+        os.path.join(ROOT_DIR, "tests", "merchant_smoke.lua"),
     ]
     for path in lua_files:
         assert os.path.exists(path), f"File missing: {path}"

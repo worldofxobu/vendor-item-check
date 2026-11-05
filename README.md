@@ -8,13 +8,17 @@ Vendor Item Check is a lightweight, zero-dependency addon for **World of Warcraf
 - **Dynamic Alt-Key Expansion**: Press and hold `Alt` (or your configured modifier) to expand the tooltip with vendor names, zone locations, and coordinates. Releasing collapses it back instantly without cursor re-hovering.
 - **Faction Filtering**: Filters known faction restrictions. Forever vendors whose access requirements are unrecorded are marked `Access unverified` in the expanded tooltip.
 - **Closest Vendor Priority**: Sorts vendors in your current zone and nearest coordinates to the top of the list.
-- **Vendor Purchase Price**: Displays historical reference prices on Classic Era. Forever prices are omitted until the source records purchase quantity, currency costs, and discount context.
+- **Vendor Purchase Price**: Displays historical reference prices on Classic Era and observed quotes from your own Forever merchant visits, including purchase quantities.
 - **Configurable Limit**: Caps long vendor lists for ubiquitous items (e.g. Refreshing Spring Water, Mild Spices) and displays a clean `+N more` counter.
 - **Zero Dependencies**: Includes separate bundled datasets for each client. Classic Era has 1,931 items and 956 vendors; Forever includes only corroborated observations from the live game.
 
 ## Forever data coverage
 
-Forever uses [Everloot's public player observations](https://everloot.app/docs/api), with at least three independent reporters required for an item/vendor relation. Classic inventories, coordinates, faction access, and prices are never substituted for missing Forever data.
+On Forever, the addon automatically learns from merchants you visit. Open a merchant window, then hover an observed item anywhere to see who sold it. Hold your modifier for the observation date, approximate location, and a price quote when available. Recording stays local and is enabled by default; turn it off with `/vic recording off` or **Learn from merchants I visit** in settings.
+
+Your own observations are usable immediately and expire after 30 days. Prices and observed access apply only to the character that made the observation. Prices are historical quotes, not a promise of today's price or stock; discounts and restrictions may change. Non-integral per-item copper prices are shown as an exact batch cost. Offers with alternate or unknown costs do not get a pure-gold comparison.
+
+The bundled Forever database uses [Everloot's public player observations](https://everloot.app/docs/api), with at least three independent reporters required for an item/vendor relation. Classic inventories, coordinates, faction access, and prices are never substituted for missing Forever data.
 
 <!-- forever-coverage:start -->
 **Bundled Forever coverage:** 0 confirmed items and 0 vendors. Source observations as of `2026-11-05T03:10:11.401Z`. No qualifying offers are bundled; Forever tooltips remain unchanged for unknown items.
@@ -22,7 +26,7 @@ Forever uses [Everloot's public player observations](https://everloot.app/docs/a
 
 Missing data does not mean the item cannot be bought.
 
-Names and locations require their own corroboration. Unknown locations stay unknown; approximate coordinates are marked `~`. Faction access is unrecorded by the source and is not inferred from NPC reaction toward one player. Records expire when fewer than three reports remain within 30 days. The source does not record exact client builds for these observations, so post-launch confirmation does not guarantee a match to the latest hotfix.
+Bundled names and locations require their own corroboration. Unknown locations stay unknown; approximate coordinates are marked `~`. Bundled faction access is unrecorded and is not inferred from NPC reaction toward one player. Bundled records expire when fewer than three reports remain within 30 days. The external source does not record exact client builds for these observations, so post-launch confirmation does not guarantee a match to the latest hotfix.
 
 Run `/vic status` to see the selected dataset, source date, build information, and bundled item/vendor counts. Data refreshes are proposed weekly for maintainer review; accepted data reaches players through addon updates. No companion app or additional addon is required. Updates cannot guarantee current stock or availability to your character.
 
@@ -69,6 +73,7 @@ Type `/vic` or `/vendorcheck` to open the addon settings.
 | `/vic toggle` | Enable or disable tooltip enhancements. |
 | `/vic status` | Show database item/vendor counts and current settings. |
 | `/vic max <1-10>` | Set maximum vendors shown in the expanded tooltip. |
+| `/vic recording on\|off` | Enable or disable learning from Forever merchants; existing observations are preserved. |
 | `/vic help` | List available slash commands. |
 
 Options configurable in the settings panel:
@@ -77,14 +82,14 @@ Options configurable in the settings panel:
 - **Max Vendors**: Set the number of vendors shown (1–10).
 - **Closest First**: Sort vendors in your current zone to the top.
 - **Show Coordinates**: Display `(x, y)` map coordinates.
-- **Show Purchase Price**: Display Classic Era reference buy prices. Forever prices are currently unavailable.
+- **Show Purchase Price**: Display Classic Era reference prices and personal Forever quotes.
 - **Show Faction Tag**: Display `[Alliance]`, `[Horde]`, or `[Neutral]` tags.
 
 ## Troubleshooting
 
 If vendor information does not appear:
 1. Confirm the addon is enabled: run `/vic status` in chat.
-2. On Forever, check the dataset date and counts. Missing confirmed data leaves the tooltip unchanged.
+2. On Forever, visit a merchant with recording enabled, then check the separate personal and bundled counts in `/vic status`. Missing data leaves the tooltip unchanged.
 3. On Classic Era, try an indexed supply such as Coarse Thread.
 4. Check if the item is restricted to the opposite faction.
 
