@@ -3,6 +3,7 @@
 import copy
 from datetime import datetime, timezone
 import hashlib
+import json
 from pathlib import Path
 import subprocess
 import shutil
@@ -40,6 +41,13 @@ def page(rows=None):
 def snapshot(rows=None):
     return {"schema": 1, "source": builder.SOURCE,
             "pages": [{"url": builder.SOURCE, "response": page(rows)}]}
+
+
+def empty_contributions(directory):
+    root = Path(directory) / "contributions"
+    root.mkdir()
+    (root / "index.json").write_text(json.dumps({"schema": 1, "asOf": None, "files": []}))
+    return root
 
 
 class BuildDataTests(unittest.TestCase):
@@ -145,7 +153,7 @@ class BuildDataTests(unittest.TestCase):
             source.write_bytes(builder.encode(snapshot()))
             output.write_text("last known good")
             original = source.read_bytes()
-            argv = ["build_data", "--refresh", "--snapshot", str(source), "--output", str(output)]
+            argv = ["build_data", "--refresh", "--snapshot", str(source), "--output", str(output), "--contributions", str(empty_contributions(directory))]
             with patch.object(sys, "argv", argv), patch.object(builder, "download_snapshot", side_effect=ValueError("unavailable")):
                 with self.assertRaises(ValueError):
                     builder.main()
@@ -158,7 +166,7 @@ class BuildDataTests(unittest.TestCase):
             source.write_bytes(builder.encode(snapshot()))
             output.write_text(builder.render(builder.compile_snapshot(snapshot()), "original"))
             original_output, original_source = output.read_bytes(), source.read_bytes()
-            argv = ["build_data", "--refresh", "--snapshot", str(source), "--output", str(output)]
+            argv = ["build_data", "--refresh", "--snapshot", str(source), "--output", str(output), "--contributions", str(empty_contributions(directory))]
             fresh_empty = snapshot([])
             fresh_empty["pages"][0]["response"]["dataAsOf"] = datetime.now(timezone.utc).isoformat()
             with patch.object(sys, "argv", argv), patch.object(builder, "download_snapshot", return_value=fresh_empty):
@@ -176,7 +184,7 @@ class BuildDataTests(unittest.TestCase):
             original_output, original_source = output.read_bytes(), source.read_bytes()
             fresh_empty = snapshot([])
             fresh_empty["pages"][0]["response"]["dataAsOf"] = datetime.now(timezone.utc).isoformat()
-            argv = ["build_data", "--refresh", "--snapshot", str(source), "--output", str(output)]
+            argv = ["build_data", "--refresh", "--snapshot", str(source), "--output", str(output), "--contributions", str(empty_contributions(directory))]
             with patch.object(sys, "argv", argv), patch.object(builder, "download_snapshot", return_value=fresh_empty):
                 builder.main()
             self.assertEqual(output.read_bytes(), original_output)

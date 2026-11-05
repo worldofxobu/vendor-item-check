@@ -228,6 +228,8 @@ function VIC:OptionsInitialize()
                 VIC:Print("Personal prices are observed quotes for this character. Missing data is unknown.")
                 VIC:Print("%s", metadata.credit or "Data from Everloot (https://everloot.app), CC BY-SA 4.0.")
             end
+        elseif cmd == "export" and VIC.OpenExport then
+            VIC:OpenExport()
         elseif cmd == "recording" then
             if VIC.client ~= "forever" then VIC:Print("Merchant recording is available on Forever.")
             elseif arg == "on" or arg == "off" then
@@ -248,6 +250,7 @@ function VIC:OptionsInitialize()
             VIC:Print("  /vic status - Display index count and configuration")
             VIC:Print("  /vic max <1-10> - Set maximum vendors shown in tooltip")
             VIC:Print("  /vic recording on|off - Learn from Forever merchants")
+            VIC:Print("  /vic export - Prepare a manual observation contribution")
         else
             VIC:OpenOptions()
         end

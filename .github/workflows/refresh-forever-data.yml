@@ -41,6 +41,8 @@ jobs:
           lua5.1 tests/smoke.lua
           lua5.1 tests/classic_smoke.lua
           lua5.1 tests/forever_smoke.lua
+          lua5.1 tests/merchant_smoke.lua
+          lua5.1 tests/export_smoke.lua
           python3 scripts/update_data_docs.py --check
           git diff --check
       - name: Prepare review description
@@ -51,9 +53,9 @@ jobs:
           Path('/tmp/vic-update-pr.md').write_text(
               'Refresh the bundled Forever vendor observations and their coverage documentation.\n\n'
               '```text\n' + summary + '```\n\n'
-              'Source: [Everloot public observations](https://everloot.app/docs/api), CC BY-SA 4.0. '
+              'Sources: [Everloot public observations](https://everloot.app/docs/api) and maintainer-reviewed VIC contributions, CC BY-SA 4.0. '
               'Only corroborated live observations qualify; Classic data is unchanged. '
-              'Prices remain hidden because purchase quantities, currency costs and discount context are unrecorded.\n\n'
+              'Bundled quote evidence is not a personal purchase price; character-specific quotes are collected separately in game.\n\n'
               'Validation: Python test runner (including importer and documentation checks), '
               'Lua 5.1 modern, Classic and Forever smoke tests, and whitespace checks passed. '
               'In-game checks have not been performed by this workflow.\n\n'

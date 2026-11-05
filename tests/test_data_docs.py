@@ -6,7 +6,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import update_data_docs as docs
-from build_data import ROOT, SNAPSHOT, compile_snapshot
+from build_data import ROOT, SNAPSHOT, compile_sources
 
 
 class DataDocumentationTests(unittest.TestCase):
@@ -28,7 +28,7 @@ class DataDocumentationTests(unittest.TestCase):
             self.assertEqual((root / "CHANGELOG.md").read_text().count(docs.ENTRY), 1)
 
     def test_checked_in_coverage_is_current(self):
-        docs.update(ROOT, compile_snapshot(json.loads(SNAPSHOT.read_text())), check=True)
+        docs.update(ROOT, compile_sources(json.loads(SNAPSHOT.read_text())), check=True)
 
 
 if __name__ == "__main__":

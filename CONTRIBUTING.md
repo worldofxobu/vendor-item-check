@@ -33,6 +33,7 @@ Never upload account credentials, authentication tokens, or private server login
    lua tests/classic_smoke.lua
    lua tests/forever_smoke.lua
    lua tests/merchant_smoke.lua
+   lua tests/export_smoke.lua
    ```
 
 4. Update `CHANGELOG.md` for user-facing changes under `[Unreleased]`.
@@ -71,7 +72,7 @@ discount context when exposed, and the exact observed build. Unknown price conte
 is never promoted to a standard buy price. A newer personal offer supersedes an
 overlapping older bundled offer for the observing character.
 
-Source: [Everloot public corpus](https://everloot.app/docs/api), filtered to `vendor`
+External source: [Everloot public corpus](https://everloot.app/docs/api), filtered to `vendor`
 and `npc_sighting`. This is a community observation feed, not Blizzard's vendor
 database. [Record schemas](https://everloot.app/schema/index.json) define the fields.
 Data from Everloot (https://everloot.app), CC BY-SA 4.0. Keep its credit and licence
@@ -145,7 +146,7 @@ Actions to create and approve pull requests** enabled in repository workflow
 permissions. No personal token is required; the job requests contents and PR write
 permissions for the built-in token.
 
-The workflow refreshes the source, updates the README coverage block and one
+The workflow refreshes the external source, combines accepted contributions, updates the README coverage block and one
 Unreleased snapshot entry, runs all checks and smoke tests, and proposes only those
 data/documentation changes. It maintains one PR on the reserved
 `automation/forever-vendor-data` branch. Do not add manual work to that bot-owned
@@ -162,6 +163,72 @@ never accept a truncated result. API or licence changes also require importer re
 Keep `scripts/build_data.py --check` passing in every data update. Since PRs created
 with the built-in token may not trigger other workflows, all required checks run
 inside the refresh job before it creates a PR. In-game verification is separate.
+
+### Review and accept contributions
+
+Players use `/vic export` and explicitly prepare a CC BY-SA 4.0 export before
+copying JSON. Exports use `vic.observations/1`, with a stable random installation
+pseudonym, export time, and a list of positive offers. Each offer includes NPC/item
+IDs, observation time, exact build/interface, channel when known, quantity, copper
+quote, and available stock/cost/discount/location context. Unknown fields are not
+inferred. Character GUIDs and unrelated settings are local only. Do not request a
+player's entire SavedVariables file.
+
+Before accepting a file, establish that its author is an independent contributor
+and its observations came from the live Forever game. Installation pseudonyms are
+deduplication aids, not proof of identity or independence. Assign one opaque
+`contributor-...` identity per person and reuse it across that person's installs,
+alts and exports. Keep the independence assessment outside the public data; the
+ledger needs only an opaque identity and a suitable review reference, without
+account names or other private details. Never upload or contact anyone automatically.
+
+```sh
+python3 scripts/import_contribution.py /path/to/export.json \
+    --identity contributor-001 --reference "Reviewed contribution reference" --confirm-live
+python3 scripts/build_data.py
+python3 scripts/update_data_docs.py
+python3 tests/run_tests.py
+```
+
+`--confirm-live` records a human review, not an automated inference. A client may
+not expose `IsTestBuild`; its export then says `channel: "unknown"` and needs live
+provenance established independently. Explicit test/beta records are rejected.
+JSON imports never execute Lua. Unknown schema versions/private fields, invalid
+costs/coordinates/builds, future export dates, oversized files and checksum/path
+violations are rejected before acceptance. Identical accepted files are a no-op.
+
+The importer stores canonical JSON and a SHA-256 in
+`scripts/data/contributions/index.json`, together with the reviewed identity,
+reference and live confirmation. Commit accepted JSON, the index, rebuilt Lua and
+coverage docs together after review. `--root PATH` supports isolated tests; initialize
+an isolated index with `{"schema":1,"asOf":null,"files":[]}` before importing.
+
+Compilation requires three independent reviewed contributors for each vendor/item
+relation and separately for names, approximate locations and quote contexts.
+Repeat files and multiple installations assigned to one contributor count once.
+Tied conflicting observations are withheld. Missing items never prove removal.
+Records expire after 30 days, retaining the original observation dates. Reviewed
+contributions and Everloot must each qualify independently; their reporter counts
+are not pooled, because cross-source identities cannot be established automatically.
+
+Prices and quantities remain reported quote evidence, not a generally applicable
+purchase price. A matching amount from three players does not establish that a
+different character gets the same discount or access. Bundled prices stay hidden;
+the observing character's own local quotes remain available.
+
+The builder reads accepted contributions automatically, includes a review-index
+checksum and source attribution, and selects newer qualifying offers without
+modifying Classic data. The documentation generator reports combined bundled
+coverage. Unreviewed submissions do not enter the scheduled workflow.
+
+### Alternative source audit
+
+The [source audit](docs/DATA_SOURCES.md) records inspected revisions, published
+contracts, dates, licences and rejection reasons. Merchant Map publishes an
+observed-data table, but the inspected vendor observations were all pre-launch and
+lacked independent reporter evidence. Polestar's inspected item-source contract is
+not a merchant-offer feed. No rows from either project are bundled. Re-audit when
+fresh live provenance becomes available rather than importing an inherited baseline.
 
 ### Classic Era reference data
 

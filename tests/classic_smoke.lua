@@ -126,6 +126,7 @@ assert(loadfile("VendorItemCheck/DataForever.lua"))(addonName, VIC)
 local chunkCore = assert(loadfile("VendorItemCheck/Core.lua"))
 chunkCore(addonName, VIC)
 assert(loadfile("VendorItemCheck/Merchant.lua"))(addonName, VIC)
+assert(loadfile("VendorItemCheck/Export.lua"))(addonName, VIC)
 
 local chunkTooltip = assert(loadfile("VendorItemCheck/Tooltip.lua"))
 chunkTooltip(addonName, VIC)

@@ -57,12 +57,13 @@ def validate_lua_syntax(file_path: str):
     if shutil.which("luac"):
         proc = subprocess.run(["luac", "-p", file_path], capture_output=True, text=True)
         assert proc.returncode == 0, f"Lua syntax error in {file_path}:\n{proc.stderr.strip()}"
+        return
 
     with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # Strip single line comments
-    content_no_comments = re.sub(r'--[^\n]*', '', content)
+    # Heuristic fallback only: quoted JSON delimiters are not Lua structure.
+    content_no_comments = re.sub(r'''--[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*' ''', '', content, flags=re.VERBOSE)
 
     # Check parenthesis balance
     open_p = content_no_comments.count('(')
@@ -103,12 +104,15 @@ def validate_all_lua_syntax():
         os.path.join(ADDON_DIR, "DataForever.lua"),
         os.path.join(ADDON_DIR, "Core.lua"),
         os.path.join(ADDON_DIR, "Merchant.lua"),
+        os.path.join(ADDON_DIR, "Export.lua"),
         os.path.join(ADDON_DIR, "Tooltip.lua"),
         os.path.join(ADDON_DIR, "Options.lua"),
         os.path.join(ROOT_DIR, "tests", "smoke.lua"),
         os.path.join(ROOT_DIR, "tests", "classic_smoke.lua"),
         os.path.join(ROOT_DIR, "tests", "forever_smoke.lua"),
         os.path.join(ROOT_DIR, "tests", "merchant_smoke.lua"),
+        os.path.join(ROOT_DIR, "tests", "export_smoke.lua"),
+        os.path.join(ROOT_DIR, "tests", "contribution_fixture.lua"),
     ]
     for path in lua_files:
         assert os.path.exists(path), f"File missing: {path}"

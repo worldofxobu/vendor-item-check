@@ -18,7 +18,7 @@ On Forever, the addon automatically learns from merchants you visit. Open a merc
 
 Your own observations are usable immediately and expire after 30 days. Prices and observed access apply only to the character that made the observation. Prices are historical quotes, not a promise of today's price or stock; discounts and restrictions may change. Non-integral per-item copper prices are shown as an exact batch cost. Offers with alternate or unknown costs do not get a pure-gold comparison.
 
-The bundled Forever database uses [Everloot's public player observations](https://everloot.app/docs/api), with at least three independent reporters required for an item/vendor relation. Classic inventories, coordinates, faction access, and prices are never substituted for missing Forever data.
+The bundled Forever database combines eligible [Everloot observations](https://everloot.app/docs/api) with reviewed player contributions. At least three independent reporters are required for a shared item/vendor relation. Classic inventories, coordinates, faction access, and prices are never substituted for missing Forever data.
 
 <!-- forever-coverage:start -->
 **Bundled Forever coverage:** 0 confirmed items and 0 vendors. Source observations as of `2026-11-05T03:10:11.401Z`. No qualifying offers are bundled; Forever tooltips remain unchanged for unknown items.
@@ -31,6 +31,22 @@ Bundled names and locations require their own corroboration. Unknown locations s
 Run `/vic status` to see the selected dataset, source date, build information, and bundled item/vendor counts. Data refreshes are proposed weekly for maintainer review; accepted data reaches players through addon updates. No companion app or additional addon is required. Updates cannot guarantee current stock or availability to your character.
 
 Data from [Everloot](https://everloot.app), [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Attribution and data terms are included in `DATA_LICENSE.md` inside the addon folder.
+
+## Share observations
+
+Run `/vic export` to open the contribution window. It explains what will be shared
+and the CC BY-SA 4.0 terms. If you agree, press **Prepare CC BY-SA export**, copy the
+selected text with Ctrl+C, and save it as a `.json` file to share with a maintainer.
+Nothing is uploaded automatically.
+
+The export includes NPC/item facts, quoted prices and quantities, approximate NPC
+locations, observation dates/builds, faction and discount context when available,
+and a stable installation pseudonym. Character names, character GUIDs, realm/account
+names, and unrelated settings are excluded. You do not need to share your whole
+SavedVariables file. Your local data works without exporting or contributing.
+
+Contributions are reviewed before publication. Repeated exports, alts, or multiple
+installations belonging to the same person do not count as independent reports.
 
 ## Compatibility
 
@@ -74,6 +90,7 @@ Type `/vic` or `/vendorcheck` to open the addon settings.
 | `/vic status` | Show database item/vendor counts and current settings. |
 | `/vic max <1-10>` | Set maximum vendors shown in the expanded tooltip. |
 | `/vic recording on\|off` | Enable or disable learning from Forever merchants; existing observations are preserved. |
+| `/vic export` | Prepare an optional manual observation contribution. |
 | `/vic help` | List available slash commands. |
 
 Options configurable in the settings panel:
@@ -95,4 +112,4 @@ If vendor information does not appear:
 
 ## License
 
-Addon code is released under the [MIT License](LICENSE). Forever observation data and its derived database use CC BY-SA 4.0; see [data attribution](VendorItemCheck/DATA_LICENSE.md).
+Addon code is released under the [MIT License](LICENSE). Shared Forever observation exports and the derived bundled database use CC BY-SA 4.0; see [data attribution](VendorItemCheck/DATA_LICENSE.md).

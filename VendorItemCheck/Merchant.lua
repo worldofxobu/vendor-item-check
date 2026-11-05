@@ -17,7 +17,8 @@ local function Integer(value, minimum)
 end
 
 function VIC:ObservationNow()
-    local now = Call(GetServerTime) or Call(time)
+    local now = Call(GetServerTime)
+    if not Number(now, 1) then now = Call(time) end
     if Number(now, 1) then return math.floor(now) end
 end
 
@@ -37,7 +38,8 @@ function VIC:InitializeObservations()
     end
     -- Preserve unsupported saved schemas instead of overwriting their contents.
     if type(stored) ~= "table" or stored.schema ~= 1 or type(stored.characters) ~= "table" or
-        type(stored.reporterId) ~= "string" then return end
+        type(stored.reporterId) ~= "string" or #stored.reporterId ~= 36 or
+        not string.match(stored.reporterId, "^vic%-%x+$") then return end
     self.observations = stored
     self:RebuildPersonalIndex()
 end
@@ -146,6 +148,7 @@ function VIC:ScanMerchant()
             missing = true
         end
     end
+    self.merchantHasPending = missing
     if missing then self:ScheduleMerchantRetry() end
 end
 
@@ -187,11 +190,14 @@ function VIC:MerchantInitialize()
             VIC.merchantGeneration = VIC.merchantGeneration + 1
             VIC.merchantRetries = 0
             VIC.merchantRetryPending = false
+            VIC.merchantHasPending = false
             frame:SetScript("OnUpdate", nil)
             VIC.merchantGUID = event == "MERCHANT_SHOW" and MerchantIdentity() or nil
             if event == "MERCHANT_SHOW" then VIC:RebuildPersonalIndex() end
         elseif event == "PLAYER_LOGIN" then
             VIC:RebuildPersonalIndex()
+        elseif event == "GET_ITEM_INFO_RECEIVED" or event == "ITEM_DATA_LOAD_RESULT" then
+            if not VIC.merchantHasPending or VIC.merchantRetryPending then return end
         end
         VIC:ScanMerchant()
     end)

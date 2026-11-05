@@ -5,7 +5,7 @@ import argparse
 import json
 import re
 
-from build_data import ROOT, SNAPSHOT, compile_snapshot
+from build_data import ROOT, SNAPSHOT, compile_sources
 
 START = "<!-- forever-coverage:start -->"
 END = "<!-- forever-coverage:end -->"
@@ -54,4 +54,4 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
-    update(ROOT, compile_snapshot(json.loads(SNAPSHOT.read_text())), args.check)
+    update(ROOT, compile_sources(json.loads(SNAPSHOT.read_text())), args.check)

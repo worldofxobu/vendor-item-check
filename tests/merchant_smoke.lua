@@ -68,6 +68,19 @@ for _, line in ipairs(tip.lines) do
 end
 assert(observed and access and quote)
 
+-- Merge by evidence time without changing the bundled registry or duplicating vendors.
+local originalItems, originalVendors = VIC.Items, VIC.Vendors
+VIC.Items = { [100002] = { v = { 100001 }, offers = { [100001] = {
+    reporters = 3, expires = now + 100, lastSeenEpoch = now - 1,
+} } } }
+VIC.Vendors = { [100001] = { "Bundled Vendor", "Location unknown", "?", 0, 0, nameExpires = now + 100 } }
+assert(VIC:GetItemVendors(100002).vendors[1].personal)
+now = now + 2
+VIC.Items[100002].offers[100001].lastSeenEpoch = now - 1
+info = VIC:GetItemVendors(100002)
+assert(info.totalCount == 1 and not info.vendors[1].personal and info.observedPriceText == nil)
+VIC.Items, VIC.Vendors = originalItems, originalVendors
+
 -- Legacy API fallback and exact batch quotes, including zero-price offers.
 C_MerchantFrame = nil
 slots[1].price, slots[1].quantity = 3, 2

@@ -82,6 +82,17 @@ function CreateFrame(frameType, name, parent, template)
         return self.name
     end
     function f:SetSize(w, h) end
+    function f:SetWidth(w) self.width = w end
+    function f:SetHeight(h) self.height = h end
+    function f:SetMultiLine(value) self.multiline = value end
+    function f:SetAutoFocus(value) self.autoFocus = value end
+    function f:SetFontObject() end
+    function f:SetMaxLetters(value) self.maxLetters = value end
+    function f:SetFocus() self.focused = true end
+    function f:ClearFocus() self.focused = false end
+    function f:HighlightText() self.highlighted = true end
+    function f:SetScrollChild(child) self.child = child end
+    function f:UpdateScrollChildRect() end
     function f:SetPoint(p, a, b, c, d) end
     function f:SetText(t) self.text = t end
     function f:GetText() return self.text end
@@ -143,6 +154,7 @@ assert(loadfile("VendorItemCheck/DataForever.lua"))(addonName, VIC)
 local chunkCore = assert(loadfile("VendorItemCheck/Core.lua"))
 chunkCore(addonName, VIC)
 assert(loadfile("VendorItemCheck/Merchant.lua"))(addonName, VIC)
+assert(loadfile("VendorItemCheck/Export.lua"))(addonName, VIC)
 
 local chunkTooltip = assert(loadfile("VendorItemCheck/Tooltip.lua"))
 chunkTooltip(addonName, VIC)
@@ -259,3 +271,7 @@ assert(VIC.settings.enabled == true, "Addon should be toggled back to true")
 print("PASS: Slash commands (/vic status, /vic max 3, /vic toggle) verified")
 
 print("=== ALL MODERN SMOKE TESTS PASSED! ===")
+
+Informant = { GetItem = function() return { buy = 123 } end }
+assert(VIC:GetItemVendors(999999).price == 123, "Preserve Classic Informant lookup semantics")
+Informant = nil

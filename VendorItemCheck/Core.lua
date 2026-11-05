@@ -187,7 +187,7 @@ function VIC:GetItemVendors(itemID)
     if self.client == "forever" and self.MergePersonalVendors then
         self:MergePersonalVendors(itemID, result)
     end
-    if not bundledItem and result.totalCount == 0 and not result.enemyOnly then return nil end
+    if self.client == "forever" and not bundledItem and result.totalCount == 0 and not result.enemyOnly then return nil end
     return result
 end
 
