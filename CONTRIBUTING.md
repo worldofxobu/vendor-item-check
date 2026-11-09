@@ -311,3 +311,5 @@ checklist is performed.
 Importer tests use fixed observation times for reproducibility and current source
 timestamps when exercising network-refresh freshness checks. Keep these separate
 so scheduled checks remain valid after the fixture dates have passed.
+Client-isolation smoke tests must use synthetic Classic-only records rather than
+assuming a real item never gains independently corroborated Forever vendors.

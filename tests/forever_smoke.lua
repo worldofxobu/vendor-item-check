@@ -22,7 +22,14 @@ VIC:OptionsInitialize()
 assert(VIC.client == "forever")
 assert(VIC.settings.maxVendors == 3 and VIC.settings.customSetting == "preserve")
 assert(VIC.Items ~= VIC.Datasets.classic.items)
-assert(VIC:GetItemVendors(159) == nil, "Classic water vendors must not leak into Forever")
+assert(VIC.Items == VIC.Datasets.forever.items and VIC.Vendors == VIC.Datasets.forever.vendors,
+    "Forever must select its own bundled inventory and vendors")
+-- Real items may be independently confirmed on both clients after a refresh.
+local classicOnlyItem = 999998
+assert(VIC.Items[classicOnlyItem] == nil and VIC.Datasets.classic.items[classicOnlyItem] == nil)
+VIC.Datasets.classic.items[classicOnlyItem] = VIC.Datasets.classic.items[159]
+assert(VIC:GetItemVendors(classicOnlyItem) == nil, "Classic-only vendors must not leak into Forever")
+VIC.Datasets.classic.items[classicOnlyItem] = nil
 local calledInformant = false
 Informant = { GetItem = function() calledInformant = true; return { buy = 999 } end }
 assert(VIC:GetItemVendors(999999) == nil and not calledInformant)
