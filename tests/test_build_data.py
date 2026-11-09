@@ -127,6 +127,48 @@ class BuildDataTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             builder.download_snapshot(lambda url: first if url == builder.SOURCE else second)
 
+    def test_keyed_pagination_remains_reproducible_without_credentials(self):
+        urls = []
+        def get(url):
+            urls.append(url)
+            return page(records())
+        with patch.dict(builder.os.environ, {"EVERLOOT_API_KEY": "test-secret"}):
+            saved = builder.download_snapshot(get)
+        self.assertEqual(urls, [builder.KEYED_SOURCE])
+        self.assertNotIn("test-secret", json.dumps(saved))
+        self.assertEqual(len(builder.compile_snapshot(saved)["items"]), 1)
+
+    def test_authorization_is_in_header_and_redirects_are_rejected(self):
+        with patch.object(builder.urllib.request, "build_opener") as create_opener:
+            response = create_opener.return_value.open.return_value.__enter__.return_value
+            response.url = builder.KEYED_SOURCE
+            response.read.return_value = json.dumps(page()).encode()
+            builder.fetch(builder.KEYED_SOURCE, api_key="test-secret")
+            request = create_opener.return_value.open.call_args.args[0]
+            self.assertEqual(request.get_header("Authorization"), "Bearer test-secret")
+            self.assertNotIn("test-secret", request.full_url)
+        with self.assertRaisesRegex(ValueError, "redirect"):
+            builder.RejectRedirects().redirect_request(None, None, 302, "", {}, "https://example.com")
+
+    def test_keyed_download_can_exceed_anonymous_page_budget(self):
+        for key, succeeds in [("", False), ("test-secret", True)]:
+            calls = []
+            def get(url):
+                offset = len(calls)
+                calls.append(url)
+                result = page([records()[0]])
+                source = builder.KEYED_SOURCE if key else builder.SOURCE
+                result.update(offset=offset, total=26,
+                              next=source + "&offset=" + str(offset + 1) if offset < 25 else None)
+                return result
+            with patch.dict(builder.os.environ, {"EVERLOOT_API_KEY": key}):
+                if succeeds:
+                    self.assertEqual(len(builder.download_snapshot(get)["pages"]), 26)
+                else:
+                    with self.assertRaisesRegex(ValueError, "request budget"):
+                        builder.download_snapshot(get)
+                    self.assertEqual(len(calls), 25)
+
     def test_reject_unavailable_partial_and_unsafe_pages(self):
         for mutate in [lambda p: p.update(unreachable=True), lambda p: p.update(ok=False),
                        lambda p: p.update(total=100), lambda p: p.update(next="https://example.com/"),

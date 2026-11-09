@@ -32,7 +32,10 @@ jobs:
           sudo apt-get install -y lua5.1
       - name: Refresh and summarize source changes
         shell: bash
+        env:
+          EVERLOOT_API_KEY: ${{ secrets.EVERLOOT_API_KEY }}
         run: |
+          : "${EVERLOOT_API_KEY:?Set the EVERLOOT_API_KEY repository Actions secret before refreshing}"
           python3 scripts/build_data.py --refresh | tee /tmp/vic-refresh.log
           python3 scripts/update_data_docs.py
       - name: Validate generated data and both clients

@@ -10,6 +10,7 @@ from datetime import datetime, timezone, timedelta
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import re
 import sys
@@ -19,6 +20,7 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = "https://everloot.app/api/corpus/public?kinds=vendor,npc_sighting&limit=500"
+KEYED_SOURCE = SOURCE.replace("limit=500", "limit=5000")
 SNAPSHOT = ROOT / "scripts/data/forever-source.json"
 OUTPUT = ROOT / "VendorItemCheck/DataForever.lua"
 LAUNCH = datetime(2026, 11, 4, 23, tzinfo=timezone.utc)
@@ -40,10 +42,19 @@ def positive_int(value):
     return type(value) is int and 0 < value <= 9007199254740991
 
 
-def fetch(url):
-    request = urllib.request.Request(url, headers={"User-Agent": "VendorItemCheck-Builder/2"})
+class RejectRedirects(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, request, response, code, message, headers, new_url):
+        raise ValueError("Unexpected source redirect; keeping the existing database")
+
+
+def fetch(url, api_key=None):
+    headers = {"User-Agent": "VendorItemCheck-Builder/2"}
+    if api_key:
+        headers["Authorization"] = "Bearer " + api_key
+    request = urllib.request.Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
+        opener = urllib.request.build_opener(RejectRedirects())
+        with opener.open(request, timeout=30) as response:
             # Pagination is public and must never redirect to an unrelated host.
             if urllib.parse.urlsplit(response.url).netloc != "everloot.app":
                 raise ValueError("Unexpected response host")
@@ -73,16 +84,19 @@ def validate_page(page, offset, total=None, data_as_of=None):
     return count
 
 
-def download_snapshot(get=fetch):
-    pages, url, offset, total, data_as_of, visited = [], SOURCE, 0, None, None, set()
+def download_snapshot(get=None):
+    api_key = os.environ.get("EVERLOOT_API_KEY", "").strip()
+    source = KEYED_SOURCE if api_key else SOURCE
+    page_budget = 250 if api_key else 25
+    pages, url, offset, total, data_as_of, visited = [], source, 0, None, None, set()
     while url:
         parsed = urllib.parse.urlsplit(url)
         if parsed.scheme != "https" or parsed.netloc != "everloot.app" or parsed.path != "/api/corpus/public" or url in visited:
             raise ValueError("Unsafe or repeated pagination URL")
-        if len(visited) >= 25:
-            raise ValueError("Feed exceeds unauthenticated request budget; review bulk import")
+        if len(visited) >= page_budget:
+            raise ValueError("Feed exceeds request budget; configure EVERLOOT_API_KEY or review bulk import")
         visited.add(url)
-        page = get(url)
+        page = fetch(url, api_key=api_key) if get is None else get(url)
         total = validate_page(page, offset, total, data_as_of)
         data_as_of = page["dataAsOf"]
         pages.append({"url": url, "response": page})
@@ -92,7 +106,7 @@ def download_snapshot(get=fetch):
             raise ValueError("Invalid pagination progress")
     if offset != total:
         raise ValueError("Incomplete source download")
-    return {"schema": 1, "source": SOURCE, "pages": pages}
+    return {"schema": 1, "source": source, "pages": pages}
 
 
 def consensus(values):
@@ -111,10 +125,10 @@ def confirmation_expiry(dates):
 
 
 def compile_snapshot(snapshot):
-    if snapshot.get("schema") != 1 or snapshot.get("source") != SOURCE or not snapshot.get("pages"):
+    if snapshot.get("schema") != 1 or snapshot.get("source") not in (SOURCE, KEYED_SOURCE) or not snapshot.get("pages"):
         raise ValueError("Unsupported source snapshot")
     records, offset, total, as_of = [], 0, None, None
-    expected_url = SOURCE
+    expected_url = snapshot["source"]
     for saved in snapshot["pages"]:
         if saved["url"] != expected_url:
             raise ValueError("Snapshot page chain is incomplete")

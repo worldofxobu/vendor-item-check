@@ -157,7 +157,13 @@ review and experiments. Do not commit synthetic test records as addon data.
 The importer validates every page and rejects changing snapshot dates/totals,
 incomplete pagination, missing attribution, unavailable storage and malformed
 records. It follows only the public corpus host/path, respects rate-limit failures,
-and caps a refresh at 25 pages to stay below the anonymous hourly allowance. A fresh
+and caps an anonymous download at 25 pages to stay below the anonymous hourly allowance.
+Bulk API refreshes require a free Everloot key under the provider's terms. Set
+`EVERLOOT_API_KEY` in the environment for authenticated downloads of up to 250
+pages with 5,000 records per page. The key is sent only in the authorization header,
+never in snapshot URLs or generated data; redirects are rejected. Offline builds
+and checks need no key and reproduce both anonymous and authenticated snapshots.
+Keep the key out of shell history, source files and logs. A fresh
 network import must have a source date within two days. Failures before validation
 leave existing files untouched. A populated-to-empty refresh requires manual review;
 reproduce a separately reviewed snapshot offline if that removal is intentional.
@@ -177,6 +183,13 @@ repository's default branch. GitHub Actions must be enabled, with **Allow GitHub
 Actions to create and approve pull requests** enabled in repository workflow
 permissions. No personal token is required; the job requests contents and PR write
 permissions for the built-in token.
+
+Set the repository Actions secret `EVERLOOT_API_KEY` to an Everloot API key before
+running the workflow. It is exposed only to the refresh step. An absent or expired
+key fails the refresh and preserves the last validated dataset. Rotate the secret
+when the provider key expires; this credential is separate from GitHub's built-in
+token. Everloot associates the key with its account and may contact bulk users
+about their projects; see https://everloot.app/docs/api/keys.
 
 The workflow refreshes the external source, combines accepted contributions, updates the README coverage block and one
 Unreleased snapshot entry, runs all checks and smoke tests, and proposes only those
