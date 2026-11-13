@@ -110,17 +110,19 @@ function VIC:IsVendorFriendly(vendorFaction, playerFaction)
     return false
 end
 
-function VIC:GetItemVendors(itemID)
+function VIC:GetItemVendors(itemID, filters)
+    filters = filters or {}
     if not itemID or not self.Items then
         return nil
     end
 
     local itemData = self.Items[itemID]
     local bundledItem = itemData ~= nil
+    if filters.source == "personal" then itemData = nil; bundledItem = false end
     if not itemData and self.client == "forever" then itemData = { v = {} } end
     if not itemData then
         -- Optional external integration: Informant
-        if self.client == "classic" and Informant and Informant.GetItem then
+        if not filters.source and self.client == "classic" and Informant and Informant.GetItem then
             local inf = Informant.GetItem(itemID)
             if inf and inf.buy then
                 itemData = { v = {}, p = inf.buy }
@@ -149,7 +151,7 @@ function VIC:GetItemVendors(itemID)
         if rawVendor then
             totalVendors = totalVendors + 1
             local vFac = rawVendor[3] or "N"
-            if self:IsVendorFriendly(vFac, playerFaction) then
+            if filters.allFactions or self:IsVendorFriendly(vFac, playerFaction) then
                 local locationValid = self.client ~= "forever" or
                     (rawVendor.locationExpires and (not time or time() <= rawVendor.locationExpires))
                 local nameValid = self.client ~= "forever" or
@@ -171,6 +173,8 @@ function VIC:GetItemVendors(itemID)
                     mapID = locationValid and rawVendor.mapID or nil,
                     approximate = rawVendor.approximate,
                     offer = offer,
+                    locationExpires = rawVendor.locationExpires,
+                    source = "bundled",
                 }
             else
                 enemyVendorsCount = enemyVendorsCount + 1
@@ -188,7 +192,7 @@ function VIC:GetItemVendors(itemID)
         enemyOnly = isEnemyOnly,
         enemyFaction = playerFaction and ((playerFaction == "Alliance") and "Horde" or "Alliance") or nil,
     }
-    if self.client == "forever" and self.MergePersonalVendors then
+    if self.client == "forever" and filters.source ~= "bundled" and self.MergePersonalVendors then
         self:MergePersonalVendors(itemID, result)
     end
     if self.client == "forever" and not bundledItem and result.totalCount == 0 and not result.enemyOnly then return nil end

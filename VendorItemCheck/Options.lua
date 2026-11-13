@@ -167,6 +167,12 @@ function VIC:CreateOptionsPanel()
     local price = CreateCheckbox(panel, "showPrice", "Show vendor purchase price", "Displays the vendor buy price in the tooltip.", coords)
     local faction = CreateCheckbox(panel, "showFaction", "Show vendor faction tag", "Displays [Alliance], [Horde], or [Neutral] tags.", price)
 
+    local browseBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    browseBtn:SetSize(230, 24)
+    browseBtn:SetPoint("TOPLEFT", faction, "BOTTOMLEFT", 140, -20)
+    browseBtn:SetText("Browse vendors and items")
+    browseBtn:SetScript("OnClick", function() VIC:OpenBrowser() end)
+
     local resetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     resetBtn:SetSize(120, 22)
     resetBtn:SetPoint("TOPLEFT", faction, "BOTTOMLEFT", 0, -20)
@@ -232,6 +238,8 @@ function VIC:OptionsInitialize()
                 VIC:Print("Personal prices are observed quotes for this character. Missing data is unknown.")
                 VIC:Print("%s", metadata.credit or "Data from Everloot (https://everloot.app), CC BY-SA 4.0.")
             end
+        elseif cmd == "browse" then
+            VIC:OpenBrowser()
         elseif cmd == "export" and VIC.OpenExport then
             VIC:OpenExport()
         elseif cmd == "recording" then
@@ -250,6 +258,7 @@ function VIC:OptionsInitialize()
         elseif cmd == "help" then
             VIC:Print("Commands:")
             VIC:Print("  /vic - Open settings")
+            VIC:Print("  /vic browse - Browse known items and vendors")
             VIC:Print("  /vic toggle - Toggle enabled state")
             VIC:Print("  /vic status - Display index count and configuration")
             VIC:Print("  /vic max <1-10> - Set maximum vendors shown in tooltip")

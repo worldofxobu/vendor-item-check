@@ -55,7 +55,7 @@ def validate_toc_files():
 
         assert has_interface, f"No ## Interface tag in {toc_path}"
         assert has_title, f"No ## Title tag in {toc_path}"
-        assert files_to_load == ["Data.lua", "DataForever.lua", "Core.lua", "Merchant.lua", "Export.lua", "Tooltip.lua", "Options.lua"], f"Incorrect addon load order in {toc_path}"
+        assert files_to_load == ["Data.lua", "DataForever.lua", "Core.lua", "Merchant.lua", "Export.lua", "Tooltip.lua", "Tracking.lua", "Browser.lua", "Options.lua"], f"Incorrect addon load order in {toc_path}"
 
         for lua_file in files_to_load:
             full_path = os.path.join(ADDON_DIR, lua_file)
@@ -118,12 +118,15 @@ def validate_all_lua_syntax():
         os.path.join(ADDON_DIR, "Export.lua"),
         os.path.join(ADDON_DIR, "Tooltip.lua"),
         os.path.join(ADDON_DIR, "Options.lua"),
+        os.path.join(ADDON_DIR, "Browser.lua"),
+        os.path.join(ADDON_DIR, "Tracking.lua"),
         os.path.join(ROOT_DIR, "tests", "smoke.lua"),
         os.path.join(ROOT_DIR, "tests", "classic_smoke.lua"),
         os.path.join(ROOT_DIR, "tests", "forever_smoke.lua"),
         os.path.join(ROOT_DIR, "tests", "merchant_smoke.lua"),
         os.path.join(ROOT_DIR, "tests", "export_smoke.lua"),
         os.path.join(ROOT_DIR, "tests", "controller_smoke.lua"),
+        os.path.join(ROOT_DIR, "tests", "browser_smoke.lua"),
         os.path.join(ROOT_DIR, "tests", "contribution_fixture.lua"),
     ]
     for path in lua_files:

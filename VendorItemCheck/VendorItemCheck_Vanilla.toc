@@ -12,4 +12,6 @@ Core.lua
 Merchant.lua
 Export.lua
 Tooltip.lua
+Tracking.lua
+Browser.lua
 Options.lua

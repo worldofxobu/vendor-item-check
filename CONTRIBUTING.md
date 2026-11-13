@@ -35,6 +35,7 @@ Never upload account credentials, authentication tokens, or private server login
    lua tests/merchant_smoke.lua
    lua tests/export_smoke.lua
    lua tests/controller_smoke.lua
+   lua tests/browser_smoke.lua
    ```
 
 4. Update `CHANGELOG.md` for user-facing changes under `[Unreleased]`.
@@ -67,6 +68,28 @@ settings refresh open tooltips immediately. Tests must cover press/release, mult
 tooltips, remapping, disconnection, missing APIs, controller-only and always-expanded
 modes, and preserving normal game controls. Synthetic controller tests do not replace
 an in-game controller check.
+
+## Browser and tracking
+
+`Browser.lua` indexes the active dataset and personal observations through
+`GetItemVendors(itemID, filters)`. Optional filters select `source` (`personal` or
+`bundled`; omitted means both) and `allFactions`; existing tooltip callers retain
+their behavior. Browser zone filtering follows offer resolution. Do not bypass
+freshness or character-specific quote checks. Search indexes are transient; item
+names resolve in bounded batches from guarded client APIs. Merchant scans refresh
+an open browser; reopening and periodic visible refreshes recheck freshness.
+
+`Tracking.lua` keeps one session-only destination. Native waypoints require a
+recorded map ID and guarded waypoint APIs; zone strings must never be guessed into
+map IDs. Coordinates are stored as percentages and converted to normalized map
+coordinates only at the waypoint boundary. Clear only a waypoint that still
+matches the addon-owned point. Do not alter native supertracking.
+
+Run `lua tests/browser_smoke.lua` for synthetic cross-link navigation, filtering,
+name loading, expiry, quote privacy and waypoint ownership checks. In each supported
+client, also inspect layout at common UI scales, long/localized names, item hover,
+search/paging, live merchant refresh, and map/coordinate fallback behavior. Verify
+moving/closing the tracker, replacing destinations, and preserving user waypoints.
 
 ## Vendor data pipeline
 

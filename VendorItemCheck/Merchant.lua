@@ -148,6 +148,7 @@ function VIC:ScanMerchant()
             missing = true
         end
     end
+    if self.RefreshBrowser then self:RefreshBrowser(true) end
     self.merchantHasPending = missing
     if missing then self:ScheduleMerchantRetry() end
 end
@@ -240,7 +241,8 @@ function VIC:MergePersonalVendors(itemID, info)
                     id = vendorId, name = chosen.vendorName or ("Vendor " .. vendorId),
                     zone = location.zone or "Location unknown", mapID = location.mapId,
                     x = location.x or 0, y = location.y or 0, approximate = true, faction = "?",
-                    personal = true, observedAt = chosen.observedAt, stock = chosen.stock,
+                    personal = true, source = "personal", observedAt = chosen.observedAt, stock = chosen.stock,
+                    locationExpires = chosen.observedAt + 30 * 86400,
                     accessObserved = sameCharacter and chosen.canPurchase == true,
                     quoteText = sameCharacter and self:PersonalQuote(chosen) or nil,
                     alternateCost = sameCharacter and chosen.hasExtendedCost == true,

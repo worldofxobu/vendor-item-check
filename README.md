@@ -85,6 +85,41 @@ a vendor item tooltip is showing. Release it to collapse, or keep holding Alt to
 stay expanded. With a supported controller connected and enabled, the default hint
 is `Hold ALT or LT for locations`.
 
+## Browse items and vendors
+
+Run `/vic browse`, or click **Browse vendors and items** in settings, to open the
+browser. The **Items** tab searches known items by name or item ID and lists their
+sellers. The **Vendors** tab searches names or NPC IDs and shows each vendor's
+**known items**. Click a seller or inventory item to move between the two views;
+hover an item for its tooltip. Use Previous/Next to page through results.
+
+Filter by source (**All**, **Personal**, or **Bundled**), zone, or faction access.
+Click the zone button to cycle through known zones and back to All. Access defaults
+to compatible or unverified vendors; choose all factions to include known opposing
+vendors. A second search field filters the selected inventory or seller list.
+Item names load from the client cache; unavailable names appear as `Item <ID>` and
+remain searchable by ID. They update when the client supplies the name.
+
+Prices retain their context: Classic values are historical references, and Forever
+quotes apply only to the observing character. Approximate positions, observation
+dates and recorded stock are labelled. Known inventories may be incomplete;
+recorded stock and prices are not live availability. Forever records expire after
+30 days, and its browser initially fills from merchants you visit while bundled
+coverage is empty. Classic has no personal merchant journal.
+
+Select a vendor and click **Track vendor** for a movable destination panel. It
+shows the saved zone and coordinates; `~` marks approximate locations. **Show on
+map** places a native waypoint and opens the map when the client supports it and
+the record has a usable map ID. Otherwise, use the displayed coordinates; Classic's
+older records do not include map IDs. Unknown locations cannot be tracked. There
+is no navigation arrow or live NPC tracking.
+
+Only one vendor is tracked at a time, for the current login session. **Stop
+tracking** or the panel's close button clears it; an expired location also clears
+tracking. The addon removes its waypoint only if it still matches the one it
+placed, preserving a different waypoint you set afterward. Choosing **Show on map**
+replaces the current native waypoint.
+
 ## Configuration
 
 Type `/vic` or `/vendorcheck` to open the addon settings.
@@ -92,6 +127,7 @@ Type `/vic` or `/vendorcheck` to open the addon settings.
 | Command | Description |
 | --- | --- |
 | `/vic` | Open addon settings panel. |
+| `/vic browse` | Search known items and browse vendor inventories. |
 | `/vic toggle` | Enable or disable tooltip enhancements. |
 | `/vic status` | Show database item/vendor counts and current settings. |
 | `/vic max <1-10>` | Set maximum vendors shown in the expanded tooltip. |
