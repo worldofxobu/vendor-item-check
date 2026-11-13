@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Open the browser with /vic and settings with /vic settings; restore item/vendor browsing context with Back. Simplify result labels and keep the browser on screen.
+### Changed
+- Replace cycling browser filters and expansion controls with explicit choice menus.
+- Browse scrollable item/vendor lists with remembered tab state, Back navigation, direct seller tracking, and expandable offer details.
+- Add compact screen layouts, browser help and coverage details, grouped settings with a sample preview, and confirmation before resetting settings.
+- Keep tracking coordinates visible when map waypoint creation fails.
 
+
+- Open the browser with /vic and settings with /vic settings; restore item/vendor browsing context with Back. Simplify result labels and keep the browser on screen.
 
 ### Fixed
 - Forever no longer displays historical Classic inventories, locations, faction restrictions, or prices as Forever data.

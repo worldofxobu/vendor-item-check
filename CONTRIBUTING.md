@@ -336,3 +336,14 @@ timestamps when exercising network-refresh freshness checks. Keep these separate
 so scheduled checks remain valid after the fixture dates have passed.
 Client-isolation smoke tests must use synthetic Classic-only records rather than
 assuming a real item never gains independently corroborated Forever vendors.
+
+### UI redesign checks
+
+Browser navigation stores session-only snapshots of searches, filters, selections,
+and list offsets. Exercise explicit menu choices, Back after cross-links, tab
+restoration, wheel/slider bounds, direct seller tracking, and record expiry.
+Check compact results/detail navigation and viewport fitting on both clients.
+Settings reset must require a choice and preserve observations. Preview content is
+labelled example data; it must never enter the vendor index. Price qualification
+and unknown access remain visible in summary rows. Inspect long names, row actions,
+icons, and the optional export window in-game at common UI scales.

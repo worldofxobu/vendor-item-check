@@ -64,16 +64,19 @@ function VIC:TrackVendor(vendor)
     if not self.trackingPanel then
         local panel = CreateFrame("Frame", "VendorItemCheckTracking", UIParent, "BasicFrameTemplateWithInset")
         self.trackingPanel = panel
-        panel:SetSize(300, 170); panel:SetPoint("CENTER", UIParent, "CENTER", 330, 0)
+        panel:SetSize(310, 155); panel:SetPoint("CENTER", UIParent, "CENTER", 330, 0)
         panel:SetMovable(true); panel:EnableMouse(true); panel:RegisterForDrag("LeftButton")
         panel:SetScript("OnDragStart", panel.StartMoving); panel:SetScript("OnDragStop", panel.StopMovingOrSizing)
         if panel.TitleText then panel.TitleText:SetText("Tracked vendor") end
         panel.text = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
         panel.text:SetPoint("TOPLEFT", 14, -35); panel.text:SetWidth(272); panel.text:SetJustifyH("LEFT")
+        panel.status = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        panel.status:SetPoint("BOTTOMLEFT", 12, 42); panel.status:SetWidth(286); panel.status:SetJustifyH("LEFT")
+        if panel.SetClampedToScreen then panel:SetClampedToScreen(true) end
         local map = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
         map:SetPoint("BOTTOMLEFT", 12, 12); map:SetSize(130, 24); map:SetText("Show on map")
         map:SetScript("OnClick", function()
-            if not self:ShowTrackedVendorOnMap() then panel.text:SetText("Map waypoint unavailable. Use the recorded coordinates or select the vendor again.") end
+            if not self:ShowTrackedVendorOnMap() then panel.status:SetText("Map waypoint unavailable; use coordinates.") end
         end)
         panel.map = map
         local stop = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
@@ -92,7 +95,8 @@ function VIC:TrackVendor(vendor)
     local panel = self.trackingPanel
     panel.text:SetText(string.format("%s\n%s %s%.1f, %.1f%s", vendor.name, vendor.zone or "Location unknown",
         vendor.approximate and "~" or "", vendor.x, vendor.y,
-        self:CanMapVendor(vendor) and "" or "\nMap waypoint unavailable; use coordinates."))
+        ""))
+    panel.status:SetText(self:CanMapVendor(vendor) and "" or "Map waypoint unavailable; use coordinates.")
     panel.map:SetEnabled(self:CanMapVendor(vendor)); panel:Show()
     return true
 end

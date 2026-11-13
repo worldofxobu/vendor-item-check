@@ -91,11 +91,11 @@ Run `/vic browse`, or click **Browse vendors and items** in settings, to open th
 browser. The **Items** tab searches known items by name or item ID and lists their
 sellers. The **Vendors** tab searches names or NPC IDs and shows each vendor's
 **known items**. Click a seller or inventory item to move between the two views;
-hover an item for its tooltip. Use Previous/Next to page through results.
+hover an item for its tooltip. Scroll either list with the mouse wheel or drag its scrollbar.
 
 Filter by source (**All**, **Personal**, or **Bundled**), zone, or faction access.
-Click the zone button to cycle through known zones and back to All. Access defaults
-to compatible or unverified vendors; choose all factions to include known opposing
+Open the zone menu to select a zone or All zones. Long menus support scrolling and Up/Down buttons. Access defaults
+to your faction plus unverified vendors; choose all factions to include known opposing
 vendors. A second search field filters the selected inventory or seller list.
 Item names load from the client cache; unavailable names appear as `Item <ID>` and
 remain searchable by ID. They update when the client supplies the name.
@@ -119,6 +119,17 @@ tracking** or the panel's close button clears it; an expired location also clear
 tracking. The addon removes its waypoint only if it still matches the one it
 placed, preserving a different waypoint you set afterward. Choosing **Show on map**
 replaces the current native waypoint.
+
+The browser's **Back** button restores your previous selection, searches, filters,
+and scroll positions after following an item or vendor link. Each tab remembers
+its own browsing state during the session. **Clear filters** keeps your search.
+Seller rows provide **Track** directly; **Details** shows observation and source
+information. **Help** explains navigation and **Data details** explains coverage.
+Item icons use client information; uncached names remain searchable by ID.
+
+On smaller screens the browser shows results and details on separate pages.
+Use **Back** to return to results. The window fits the available screen and
+remains clamped to its edges.
 
 ## Configuration
 
@@ -146,13 +157,15 @@ Options configurable in the settings panel:
 - **Show Purchase Price**: Display Classic Era reference prices and personal Forever quotes.
 - **Show Faction Tag**: Display `[Alliance]`, `[Horde]`, or `[Neutral]` tags.
 
-Open `/vic settings` and click either modifier selector to cycle its choices. Keyboard and
+Open `/vic settings` and select a modifier from its menu. Keyboard and
 controller inputs work independently: either selected input can expand the tooltip.
 Choose **Keyboard off** for controller-only expansion, or **Always expanded** to
 show details without holding anything. These modifier settings apply immediately and survive reloads.
 If the game already makes a controller button emulate Alt/Shift/Ctrl, that also
 activates the corresponding keyboard choice. Classic Era retains keyboard expansion.
 Unavailable controller APIs fall back to keyboard input and a keyboard-only hint.
+
+Settings are grouped into tooltips, controls, and merchant learning/data. A sample tooltip updates when settings change. Reset settings requires confirmation and preserves observations. Sharing remains optional and manual.
 
 ## Troubleshooting
 
@@ -165,5 +178,3 @@ If vendor information does not appear:
 ## License
 
 Addon code is released under the [MIT License](LICENSE). Shared Forever observation exports and the derived bundled database use CC BY-SA 4.0; see [data attribution](VendorItemCheck/DATA_LICENSE.md).
-
-The browser includes a Settings button and a Back button. Back restores the previous item or vendor selection, searches, and result pages after following an inventory or seller link.

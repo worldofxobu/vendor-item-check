@@ -66,6 +66,36 @@ function VIC:BrowserOfferText(vendor, price)
     return table.concat(parts, " | ")
 end
 
+function VIC:BrowserOfferSummary(vendor, price)
+    if not vendor then return "No offer information" end
+    local access = { A = "Alliance", H = "Horde", N = "Neutral", AH = "Both factions" }
+    local cost = vendor.quoteText and (vendor.quoteText .. " (observed quote)")
+        or vendor.alternateCost and "Alternate costs"
+        or price and ((self:FormatMoney(price) or "0c") .. " (Classic reference)")
+        or "Price unavailable"
+    return (vendor.zone or "Location unknown")
+        .. (vendor.approximate and " (approximate)" or "")
+        .. " · " .. (vendor.accessObserved and "Observed access" or access[vendor.faction] or "Access unverified")
+        .. "\n" .. cost
+end
+
+function VIC:ShowBrowserNotice(title, message)
+    if not self.browserNotice then
+        local frame = CreateFrame("Frame", "VendorItemCheckNotice", UIParent, "BasicFrameTemplateWithInset")
+        frame:SetSize(470, 300); frame:SetPoint("CENTER")
+        if frame.SetFrameStrata then frame:SetFrameStrata("DIALOG") end
+        if frame.SetClampedToScreen then frame:SetClampedToScreen(true) end
+        frame.heading = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+        frame.heading:SetPoint("TOPLEFT", 18, -35); frame.heading:SetWidth(430)
+        frame.body = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        frame.body:SetPoint("TOPLEFT", 18, -65); frame.body:SetWidth(430); frame.body:SetJustifyH("LEFT")
+        if UISpecialFrames then UISpecialFrames[#UISpecialFrames + 1] = "VendorItemCheckNotice" end
+        self.browserNotice = frame
+    end
+    self.browserNotice.heading:SetText(title); self.browserNotice.body:SetText(message)
+    self.browserNotice:Show()
+end
+
 local function Label(parent, text, x, y, width)
     local label = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     label:SetPoint("TOPLEFT", x, y)
@@ -105,14 +135,28 @@ function VIC:RefreshBrowser(rebuild)
     end
     SortRows(rows)
     panel.rows = rows
-    panel.page = math.max(1, math.min(panel.page, math.max(1, math.ceil(#rows / 10))))
-    panel.count:SetText(string.format("%d results | Page %d/%d", #rows, panel.page, math.max(1, math.ceil(#rows / 10))))
+    panel.page = math.max(1, math.min(panel.page, math.max(1, #rows - 9)))
+    panel.count:SetText(string.format("%d results · scroll to browse", #rows))
     for i, button in ipairs(panel.list) do
-        local row = rows[(panel.page - 1) * 10 + i]
+        local row = rows[panel.page - 1 + i]
         button.row = row
-        if row then button:SetText(row.name); button:Show() else button:Hide() end
+        if button.icon then
+            if row and panel.tab == "items" then
+                local api = C_Item and C_Item.GetItemIconByID or GetItemIcon
+                local ok, texture = false, nil
+                if api then ok, texture = pcall(api, row.id) end
+                button.icon:SetTexture(ok and texture or "Interface\\Icons\\INV_Misc_QuestionMark"); button.icon:Show()
+            else button.icon:Hide() end
+        end
+        if row then button:SetText((panel.selected == row.id and "> " or "") .. row.name .. (panel.tab == "items" and ("\n" .. #row.vendors .. " known sellers") or ("\n" .. (row.vendor.zone or "Location unknown")))); button:Show() else button:Hide() end
     end
+    local previousSelection = panel.selected
     local selected = panel.selected and panel.index[panel.tab][panel.selected]
+    if panel.selected and not selected then
+        panel.selected = nil
+        panel.description:SetText("This record is no longer available; its evidence may have expired.")
+    end
+    local expired = previousSelection and not selected
     local details = {}
     panel.destination = nil
     if selected then
@@ -120,34 +164,61 @@ function VIC:RefreshBrowser(rebuild)
         if panel.tab == "vendors" then
             details = selected.items
             panel.destination = selected.vendor
-            panel.description:SetText(self:BrowserOfferText(selected.vendor))
+            panel.description:SetText(self:BrowserOfferSummary(selected.vendor))
         else
             for _, vendor in ipairs(selected.vendors) do
                 details[#details + 1] = { id = vendor.id, name = vendor.name, vendor = vendor,
                     price = (self.client == "classic" and self.Items[selected.id] and self.Items[selected.id].p) or nil }
             end
-            SortRows(details)
+            if not self.settings.showClosestFirst then SortRows(details) end
             panel.description:SetText("Select a seller to browse its known inventory and track its location.")
         end
     else
-        panel.heading:SetText("Select an item or vendor")
-        panel.description:SetText(#rows == 0 and "No matching records. On Forever, visit merchants to learn their offers. Missing data does not mean unavailable." or "Search names or IDs. Inventories and prices reflect known records, not current stock.")
+        panel.heading:SetText(expired and "Record no longer available" or ("Select an " .. (panel.tab == "items" and "item" or "vendor")))
+        panel.description:SetText(expired and "The evidence for this record may have expired. Select another result." or #rows == 0 and (panel.search:GetText() ~= "" and "No search matches. Clear the search or try an item/NPC ID."
+                or (panel.filters.source or panel.filters.zone or panel.filters.allFactions) and "No records match these filters. Choose Clear filters."
+                or self.client == "forever" and ("No known records yet. Visit merchants to learn their offers. Learning: " .. (self.settings.recordMerchants and "on" or "off") .. ". Missing data does not mean unavailable.")
+                or self.client == "classic" and "No known records."
+                or "Unsupported client: no dataset is loaded.") or "Search names or IDs. Inventories and prices reflect known records, not current stock.")
     end
     local filtered = {}
     for _, row in ipairs(details) do
         if Matches(row.name, panel.detailSearch:GetText()) or Matches(tostring(row.id), panel.detailSearch:GetText()) then filtered[#filtered + 1] = row end
     end
-    panel.detailPage = math.max(1, math.min(panel.detailPage, math.max(1, math.ceil(#filtered / 6))))
-    panel.detailCount:SetText(string.format("%d known results | Page %d/%d", #filtered, panel.detailPage, math.max(1, math.ceil(#filtered / 6))))
+    panel.detailPage = math.max(1, math.min(panel.detailPage, math.max(1, #filtered - 5)))
+    panel.detailCount:SetText(string.format("%d known results", #filtered))
     for i, button in ipairs(panel.details) do
-        local row = filtered[(panel.detailPage - 1) * 6 + i]
+        local row = filtered[panel.detailPage - 1 + i]
         button.row = row
         if row then
-            button.caption:SetText(row.name .. " (" .. row.id .. ")\n" .. self:BrowserOfferText(row.vendor, row.price))
+            button.caption:SetText(row.name .. "\n" .. self:BrowserOfferSummary(row.vendor, row.price))
+            button.track:SetText(panel.tab == "items" and "Track" or "Sellers")
+            button.track:SetEnabled(panel.tab == "vendors" or self:CanTrackVendor(row.vendor))
+            button.track:SetScript("OnClick", function()
+                if panel.tab == "items" then self:TrackVendor(row.vendor)
+                else button:GetScript("OnClick")(button) end
+            end)
+            button.track:Show(); button.info:Show()
             button:Show()
-        else button:Hide() end
+        else button:Hide(); if button.track then button.track:Hide(); button.info:Hide() end end
     end
-    if panel.back then panel.back:SetEnabled(#panel.history > 0) end
+    if panel.coverage then
+        local personalItems, personalVendors = 0, 0
+        if self.client == "forever" and self.CountPersonalItems then personalItems, personalVendors = self:CountPersonalItems() end
+        local count = self:CountIndexedItems()
+        panel.coverage:SetText(tostring(self.client) .. " · Bundled: " .. count .. " items · Personal: " .. personalItems .. " items")
+    end
+    panel.updating = true
+    for _, pair in ipairs({ { panel.resultsScroll, #rows - 9, panel.page }, { panel.detailsScroll, #filtered - 5, panel.detailPage } }) do
+        if pair[1] and pair[1].SetMinMaxValues then pair[1]:SetMinMaxValues(1, math.max(1, pair[2])); pair[1]:SetValue(pair[3]) end
+    end
+    panel.updating = false
+    if panel.itemsTab then panel.itemsTab:SetText(panel.tab == "items" and "[Items]" or "Items"); panel.vendorsTab:SetText(panel.tab == "vendors" and "[Vendors]" or "Vendors") end
+    if panel.clearFilters then panel.clearFilters:SetEnabled(panel.filters.source ~= nil or panel.filters.zone ~= nil or panel.filters.allFactions == true) end
+    if selected then panel.detailSearch:Show() else panel.detailSearch:Hide() end
+    if panel.expanded then panel.description:SetText(self:BrowserOfferText(panel.expanded.vendor, panel.expanded.price)) end
+    if panel.back then panel.back:SetEnabled(#panel.history > 0 or (panel.compact and panel.selected ~= nil)) end
+    if panel.Layout then panel:Layout() end
     panel.track:SetEnabled(self:CanTrackVendor(panel.destination))
 end
 
@@ -163,47 +234,80 @@ function VIC:OpenBrowser()
         panel:SetScript("OnDragStop", panel.StopMovingOrSizing)
         if UISpecialFrames then UISpecialFrames[#UISpecialFrames + 1] = "VendorItemCheckBrowser" end
         (panel.TitleText or Label(panel, "", 15, -8, 700)):SetText("Vendor Item Check - Browser")
-        panel.history = {}
+        panel.history = {}; panel.tabStates = {}
         panel.filters = {}; panel.tab = "items"; panel.page = 1; panel.detailPage = 1
         local function Refresh() self:RefreshBrowser() end
-        local function ChangeTab(tab)
-            panel.tab = tab; panel.page = 1; panel.selected = nil; panel.detailPage = 1
-            panel.search:SetText(""); panel.detailSearch:SetText(""); Refresh()
+        local function SaveState()
+            return { tab = panel.tab, selected = panel.selected, page = panel.page,
+                detailPage = panel.detailPage, search = panel.search:GetText(),
+                detailSearch = panel.detailSearch:GetText(),
+                filters = { source = panel.filters.source, zone = panel.filters.zone,
+                    allFactions = panel.filters.allFactions } }
         end
+        local function Restore(state)
+            panel.tab = state.tab; panel.selected = state.selected
+            panel.filters = state.filters or {}
+            panel.search:SetText(state.search or "")
+            panel.detailSearch:SetText(state.detailSearch or "")
+            panel.page = state.page or 1; panel.detailPage = state.detailPage or 1
+            panel.source:SetText("Source: " .. (panel.filters.source or "All"))
+            panel.zone:SetText("Zone: " .. (panel.filters.zone or "All"))
+            panel.faction:SetText(panel.filters.allFactions and "All factions" or "Your faction + unverified")
+            self:RefreshBrowser(true)
+        end
+        local function ChangeTab(tab)
+            panel.tabStates[panel.tab] = SaveState()
+            Restore(panel.tabStates[tab] or { tab = tab })
+        end
+        panel.help = Button(panel, "Help", 750, -68, 120, function()
+            self:ShowBrowserNotice("Find items and vendors",
+                "Choose Items to find known sellers, or Vendors to explore known inventories. Search by name or ID. Use the filters to narrow results.\n\nClick a row to inspect it; click a related item or vendor to follow it. Back restores your previous view. Scroll either list with the mouse wheel or scrollbar.\n\nTrack saves one destination for this session. Locations may be approximate. Prices and stock are recorded evidence, not live availability.\n\nOn Forever, visit merchants with learning enabled to grow your local journal. /vic settings opens settings.")
+        end)
         panel.back = Button(panel, "Back", 680, -35, 65, function()
             local state = table.remove(panel.history)
-            if not state then return end
-            panel.tab = state.tab; panel.selected = state.selected
-            panel.search:SetText(state.search); panel.detailSearch:SetText(state.detailSearch)
-            panel.page = state.page; panel.detailPage = state.detailPage
-            Refresh()
+            if not state then panel.selected = nil; Refresh(); return end
+            Restore(state)
         end)
-        Button(panel, "Settings", 750, -35, 120, function() self:OpenOptions() end)
-        Button(panel, "Items", 16, -35, 100, function() ChangeTab("items") end)
-        Button(panel, "Vendors", 120, -35, 100, function() ChangeTab("vendors") end)
-        local sources = { "all", "personal", "bundled" }; local sourceIndex = 1
+        panel.settingsButton = Button(panel, "Settings", 750, -35, 120, function() self:OpenOptions() end)
+        panel.itemsTab = Button(panel, "Items", 16, -35, 100, function() ChangeTab("items") end)
+        panel.vendorsTab = Button(panel, "Vendors", 120, -35, 100, function() ChangeTab("vendors") end)
         panel.source = Button(panel, "Source: All", 230, -35, 170, function()
-            sourceIndex = sourceIndex % #sources + 1
-            panel.filters.source = sources[sourceIndex]
-            if panel.filters.source == "all" then panel.filters.source = nil end
-            panel.source:SetText("Source: " .. sources[sourceIndex]); panel.page = 1
-            self:RefreshBrowser(true)
+            self:OpenChoiceMenu(panel.source, {
+                { label = "All sources", value = "all" },
+                { label = "Personal observations", value = "personal" },
+                { label = "Bundled data", value = "bundled" },
+            }, function(value)
+                panel.filters.source = value ~= "all" and value or nil
+                panel.source:SetText("Source: " .. value)
+                panel.page = 1; self:RefreshBrowser(true)
+            end)
         end)
-        panel.faction = Button(panel, "Access: compatible / unknown", 410, -35, 260, function()
-            panel.filters.allFactions = not panel.filters.allFactions
-            panel.faction:SetText(panel.filters.allFactions and "Access: all factions" or "Access: compatible / unknown")
-            self:RefreshBrowser(true)
+        panel.faction = Button(panel, "Your faction + unverified", 410, -35, 260, function()
+            self:OpenChoiceMenu(panel.faction, {
+                { label = "Your faction + unverified", value = false },
+                { label = "All factions", value = true },
+            }, function(value)
+                panel.filters.allFactions = value
+                panel.faction:SetText(value and "All factions" or "Your faction + unverified")
+                panel.page = 1; self:RefreshBrowser(true)
+            end)
         end)
-        panel.zone = Button(panel, "Zone: All", 16, -68, 330, function()
-            local zones = {}; local filters = { source = panel.filters.source, allFactions = panel.filters.allFactions }
-            for zone in pairs(self:BuildBrowserIndex(filters).zones) do zones[#zones + 1] = zone end
+        panel.zone = Button(panel, "Zone: All", 16, -68, 240, function()
+            local choices = { { label = "All zones", value = false } }
+            local zones = {}
+            for zone in pairs(self:BuildBrowserIndex({}).zones) do zones[#zones + 1] = zone end
             table.sort(zones)
-            local nextZone = zones[1]
-            if panel.filters.zone then
-                nextZone = nil
-                for i, zone in ipairs(zones) do if zone == panel.filters.zone then nextZone = zones[i + 1]; break end end
-            end
-            panel.filters.zone = nextZone; panel.zone:SetText("Zone: " .. (nextZone or "All"))
+            for _, zone in ipairs(zones) do choices[#choices + 1] = { label = zone, value = zone } end
+            self:OpenChoiceMenu(panel.zone, choices, function(value)
+                panel.filters.zone = value or nil
+                panel.zone:SetText("Zone: " .. (value or "All"))
+                panel.page = 1; self:RefreshBrowser(true)
+            end)
+        end)
+        panel.clearFilters = Button(panel, "Clear filters", 260, -68, 90, function()
+            panel.filters = {}; panel.page = 1
+            panel.zone:SetText("Zone: All"); panel.source:SetText("Source: All")
+            panel.faction:SetText("Your faction + unverified")
             self:RefreshBrowser(true)
         end)
         Label(panel, "Search names or IDs", 22, -101, 300)
@@ -211,11 +315,11 @@ function VIC:OpenBrowser()
         panel.heading = Label(panel, "", 365, -76, 510)
         panel.description = Label(panel, "", 365, -99, 510)
         panel.detailSearch = Search(panel, 372, -155, 490, function() panel.detailPage = 1; Refresh() end)
-        Label(panel, "Filter sellers or inventory", 372, -137, 490)
+        panel.detailLabel = Label(panel, "Filter sellers or inventory", 372, -137, 490)
         panel.list = {}; panel.details = {}
         for i = 1, 10 do
             local button = Button(panel, "", 16, -155 - (i - 1) * 37, 330, function(b)
-                panel.selected = b.row.id; panel.detailPage = 1; panel.detailSearch:SetText(""); Refresh()
+                panel.expanded = nil; panel.selected = b.row.id; panel.detailPage = 1; panel.detailSearch:SetText(""); Refresh()
             end)
             button:SetScript("OnEnter", function(b)
                 if panel.tab == "items" and b.row and GameTooltip then
@@ -223,19 +327,27 @@ function VIC:OpenBrowser()
                 end
             end)
             button:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+            if button.CreateTexture then
+                button.icon = button:CreateTexture(nil, "ARTWORK")
+                button.icon:SetSize(22, 22); button.icon:SetPoint("LEFT", 3, 0)
+            end
             panel.list[i] = button
         end
         for i = 1, 6 do
             local button = CreateFrame("Button", nil, panel)
-            button:SetPoint("TOPLEFT", 365, -190 - (i - 1) * 55); button:SetSize(510, 53)
-            button.caption = Label(button, "", 0, 0, 510)
+            button:SetPoint("TOPLEFT", 365, -190 - (i - 1) * 55); button:SetSize(365, 53)
+            button.caption = Label(button, "", 0, 0, 355)
+            button.track = Button(panel, "Track", 737, -192 - (i - 1) * 55, 65, function()
+                if button.row then self:TrackVendor(button.row.vendor) end
+            end)
+            button.info = Button(panel, "Details", 805, -192 - (i - 1) * 55, 65, function()
+                if not button.row then return end
+                self:ShowBrowserNotice(button.row.name, self:BrowserOfferText(button.row.vendor, button.row.price) .. "\nID: " .. button.row.id)
+            end)
             button:SetScript("OnClick", function(b)
                 local id = b.row.id
-                panel.history[#panel.history + 1] = {
-                    tab = panel.tab, selected = panel.selected, page = panel.page,
-                    detailPage = panel.detailPage, search = panel.search:GetText(),
-                    detailSearch = panel.detailSearch:GetText(),
-                }
+                panel.history[#panel.history + 1] = SaveState()
+                if #panel.history > 50 then table.remove(panel.history, 1) end
                 panel.tab = panel.tab == "items" and "vendors" or "items"
                 panel.selected = id; panel.page = 1; panel.detailPage = 1
                 panel.search:SetText(""); panel.detailSearch:SetText(""); Refresh()
@@ -250,12 +362,97 @@ function VIC:OpenBrowser()
         end
         panel.count = Label(panel, "", 22, -535, 320)
         panel.detailCount = Label(panel, "", 370, -535, 500)
-        Button(panel, "Previous", 16, -555, 100, function() panel.page = math.max(1, panel.page - 1); Refresh() end)
-        Button(panel, "Next", 122, -555, 100, function() panel.page = panel.page + 1; Refresh() end)
-        Button(panel, "Previous", 365, -555, 100, function() panel.detailPage = math.max(1, panel.detailPage - 1); Refresh() end)
-        Button(panel, "Next", 471, -555, 100, function() panel.detailPage = panel.detailPage + 1; Refresh() end)
+        local function Wheel(frame, detail)
+            if not frame.EnableMouseWheel then return end
+            frame:EnableMouseWheel(true)
+            frame:SetScript("OnMouseWheel", function(_, delta)
+                local key = detail and "detailPage" or "page"
+                panel[key] = math.max(1, panel[key] - delta * 3)
+                Refresh()
+            end)
+        end
+        for _, row in ipairs(panel.list) do Wheel(row, false) end
+        for _, row in ipairs(panel.details) do Wheel(row, true) end
+        -- Native sliders offer dragging as well as wheel navigation.
+        local function Scrollbar(detail)
+            local bar = CreateFrame("Slider", nil, panel, "UIPanelScrollBarTemplate")
+            bar:SetPoint("TOPLEFT", detail and 875 or 342, -190)
+            bar:SetSize(16, 325)
+            if bar.SetMinMaxValues then
+                bar:SetMinMaxValues(1, 1); bar:SetValueStep(1)
+                bar:SetScript("OnValueChanged", function(_, value)
+                    if panel.updating then return end
+                    panel[detail and "detailPage" or "page"] = math.floor(value + 0.5)
+                    Refresh()
+                end)
+            end
+            return bar
+        end
+        panel.resultsScroll = Scrollbar(false); panel.detailsScroll = Scrollbar(true)
+        panel.data = Button(panel, "Data details", 16, -585, 120, function()
+            local meta = self.dataMetadata or {}
+            self:ShowBrowserNotice("Data coverage", "Client: " .. tostring(self.client)
+                .. "\nSource date: " .. tostring(meta.dataAsOf or "Unknown")
+                .. "\n" .. tostring(meta.credit or "Classic historical reference data")
+                .. "\n\nKnown inventories may be incomplete. Personal quotes belong to the observing character. Missing data does not mean unavailable.")
+        end)
+        panel.coverage = Label(panel, "", 145, -589, 540)
         panel.track = Button(panel, "Track vendor", 700, -555, 175, function() self:TrackVendor(panel.destination) end)
-        panel:SetScript("OnShow", function() self:RefreshBrowser(true) end)
+        function panel:Layout()
+            local width = UIParent and UIParent.GetWidth and UIParent:GetWidth() or 1024
+            local height = UIParent and UIParent.GetHeight and UIParent:GetHeight() or 768
+            local compact = width < 920 or height < 640
+            self.compact = compact
+            local detail = compact and self.selected ~= nil
+            local function Move(frame, x, y, w)
+                if frame.ClearAllPoints then frame:ClearAllPoints() end
+                frame:SetPoint("TOPLEFT", x, y)
+                if w then frame:SetWidth(w) end
+            end
+            self:SetSize(compact and 700 or 900, 620)
+            if self.SetScale then self:SetScale(math.min(1, (width - 24) / (compact and 700 or 900), (height - 24) / 620)) end
+            Move(self.back, compact and 410 or 680, -35)
+            Move(self.help, compact and 480 or 750, compact and -35 or -68)
+            Move(self.settingsButton, compact and 560 or 750, -35)
+            Move(self.source, compact and 260 or 230, compact and -68 or -35, compact and 150 or 170)
+            Move(self.faction, 410, compact and -68 or -35, compact and 275 or 260)
+            Move(self.zone, 16, -68, 240)
+            Move(self.clearFilters, compact and 560 or 260, compact and -101 or -68)
+            Move(self.search, 22, -120, compact and 510 or 310)
+            Move(self.heading, compact and 22 or 365, compact and -155 or -76, compact and 650 or 510)
+            Move(self.description, compact and 22 or 365, compact and -180 or -99, compact and 650 or 510)
+            Move(self.detailSearch, compact and 22 or 372, compact and -220 or -155, compact and 510 or 490)
+            Move(self.detailLabel, compact and 22 or 372, compact and -204 or -137)
+            for i, row in ipairs(self.list) do
+                Move(row, 16, -155 - (i - 1) * 37, compact and 650 or 320)
+                if compact and detail then row:Hide() end
+            end
+            for i, row in ipairs(self.details) do
+                local y = (compact and -250 or -190) - (i - 1) * (compact and 49 or 55)
+                Move(row, compact and 22 or 365, y, compact and 490 or 365)
+                row.caption:SetWidth(compact and 480 or 355)
+                Move(row.track, compact and 535 or 737, y - 2)
+                Move(row.info, compact and 603 or 805, y - 2)
+                if compact and not detail then row:Hide(); row.track:Hide(); row.info:Hide() end
+            end
+            if compact and not detail then
+                self.heading:Hide(); self.description:Hide(); self.detailSearch:Hide(); self.detailLabel:Hide()
+                self.detailCount:Hide(); self.detailsScroll:Hide(); self.track:Hide()
+            else
+                self.heading:Show(); self.description:Show()
+                if self.selected then self.detailSearch:Show(); self.detailLabel:Show() else self.detailLabel:Hide() end
+                self.detailCount:Show(); self.detailsScroll:Show(); self.track:Show()
+            end
+            if compact and detail then self.resultsScroll:Hide(); self.count:Hide()
+            else self.resultsScroll:Show(); self.count:Show() end
+            Move(self.resultsScroll, compact and 675 or 342, -190)
+            Move(self.detailsScroll, compact and 680 or 875, compact and -250 or -190)
+            Move(self.detailCount, compact and 22 or 370, -555)
+            Move(self.track, compact and 510 or 700, -555)
+            self.coverage:SetWidth(compact and 520 or 540)
+        end
+        panel:SetScript("OnShow", function() panel:Layout(); self:RefreshBrowser(true) end)
+        panel:Layout()
         panel:RegisterEvent("GET_ITEM_INFO_RECEIVED")
         panel:SetScript("OnEvent", function(_, _, id, success)
             if success and panel.requested then panel.requested[id] = nil end

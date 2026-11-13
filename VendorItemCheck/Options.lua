@@ -59,6 +59,7 @@ local function CreateStepper(panel, key, label, minimum, maximum, step, anchor)
         local current = tonumber(VIC.settings[key]) or minimum
         VIC.settings[key] = math.max(minimum, math.min(maximum, current + delta))
         value:SetText(VIC.settings[key])
+        VIC:RefreshOptions()
     end
 
     minus:SetScript("OnClick", function() Change(-step) end)
@@ -97,10 +98,12 @@ local function CreateModifierCycle(panel, anchor, key, caption, choices, labels,
     end
 
     btn:SetScript("OnClick", function()
-        local idx = GetCurrentIndex()
-        idx = (idx % #choices) + 1
-        VIC.settings[key] = choices[idx]
-        VIC:RefreshOptions()
+        local entries = {}
+        for _, value in ipairs(choices) do entries[#entries + 1] = { label = labels[value], value = value } end
+        VIC:OpenChoiceMenu(btn, entries, function(value)
+            VIC.settings[key] = value
+            VIC:RefreshOptions()
+        end)
     end)
 
     row.UpdateButton = UpdateButton
@@ -121,6 +124,14 @@ function VIC:RefreshOptions()
         elseif ctrl.UpdateButton then
             ctrl.UpdateButton()
         end
+    end
+    if self.optionsPreview then
+        local key = self.settings.modifierKey
+        self.optionsPreview:SetText("Example tooltip (sample data)\nSold by vendor"
+            .. (self.settings.showPrice and ": 10s (Classic reference)" or "")
+            .. "\n" .. (KEYBOARD_LABELS[key] or "Hold ALT")
+            .. " for locations · up to " .. tostring(self.settings.maxVendors) .. " vendors"
+            .. (self.settings.showCoordinates and "\nExample Vendor · Example Zone (45.0, 62.0)" or "\nExample Vendor · Example Zone"))
     end
     if self.RefreshVendorTooltips then self:RefreshVendorTooltips(true) end
 end
@@ -150,40 +161,53 @@ function VIC:CreateOptionsPanel()
     subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
     subtitle:SetText("Enhances item tooltips by showing if an item can be bought from an NPC vendor.")
 
-    local enabled = CreateCheckbox(panel, "enabled", "Enable Vendor Item Check", "Show vendor information on item tooltips.", subtitle)
-    local recording = enabled
-    if self.client == "forever" then
-        recording = CreateCheckbox(panel, "recordMerchants", "Learn from merchants I visit", "Saves observed Forever offers locally. Sharing is manual.", enabled)
+    local function Heading(text, anchor)
+        local heading = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+        heading:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -18)
+        heading:SetWidth(500); heading:SetJustifyH("LEFT"); heading:SetText(text)
+        return heading
     end
-    local modCycle = CreateModifierCycle(panel, recording, "modifierKey", "Keyboard expansion modifier:",
+    local tips = Heading("Tooltips", subtitle)
+    local enabled = CreateCheckbox(panel, "enabled", "Enable tooltip enhancements", "Show known vendor information on item tooltips.", tips)
+    local maxVendors = CreateStepper(panel, "maxVendors", "Maximum vendors:", 1, 10, 1, enabled)
+    local closest = CreateCheckbox(panel, "showClosestFirst", "Prioritize nearby vendors", "Prioritizes your current zone; distances across zones are not comparable.", maxVendors)
+    local coords = CreateCheckbox(panel, "showCoordinates", "Show coordinates", "Approximate locations retain their marker.", closest)
+    local price = CreateCheckbox(panel, "showPrice", "Show qualified purchase prices", "Classic reference values or this character's observed quotes.", coords)
+    local faction = CreateCheckbox(panel, "showFaction", "Show faction tags", "Unknown access remains unverified.", price)
+    local controlsHeading = Heading("Controls", faction)
+    local modifier = CreateModifierCycle(panel, controlsHeading, "modifierKey", "Keyboard expansion:",
         VIC.keyboardModifiers, KEYBOARD_LABELS, "VICKeyboardModifier")
     if self.client == "forever" then
-        modCycle = CreateModifierCycle(panel, modCycle, "controllerModifier", "Controller expansion modifier:",
+        modifier = CreateModifierCycle(panel, modifier, "controllerModifier", "Controller expansion:",
             VIC.controllerModifiers, CONTROLLER_LABELS, "VICControllerModifier")
+        local hint = Heading("Controller expansion requires supported gamepad APIs; keyboard input remains available.", modifier)
+        modifier = hint
     end
-    local maxVendors = CreateStepper(panel, "maxVendors", "Max vendors shown:", 1, 10, 1, modCycle)
-    local closestFirst = CreateCheckbox(panel, "showClosestFirst", "Sort closest vendors first", "Shows vendors in your current zone and nearest coordinates first.", maxVendors)
-    local coords = CreateCheckbox(panel, "showCoordinates", "Show vendor coordinates", "Shows (x, y) coordinates for vendor locations.", closestFirst)
-    local price = CreateCheckbox(panel, "showPrice", "Show vendor purchase price", "Displays the vendor buy price in the tooltip.", coords)
-    local faction = CreateCheckbox(panel, "showFaction", "Show vendor faction tag", "Displays [Alliance], [Horde], or [Neutral] tags.", price)
-
-    local browseBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    browseBtn:SetSize(230, 24)
-    browseBtn:SetPoint("TOPLEFT", faction, "BOTTOMLEFT", 140, -20)
-    browseBtn:SetText("Browse vendors and items")
-    browseBtn:SetScript("OnClick", function() VIC:OpenBrowser() end)
-
-    local resetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    resetBtn:SetSize(120, 22)
-    resetBtn:SetPoint("TOPLEFT", faction, "BOTTOMLEFT", 0, -20)
-    resetBtn:SetText("Reset Defaults")
-    resetBtn:SetScript("OnClick", function()
-        for k, v in pairs(VIC.defaults) do
-            VIC.settings[k] = v
-        end
-        VIC:RefreshOptions()
-        VIC:Print("Settings reset to defaults.")
+    local data = Heading("Merchant learning & data", modifier)
+    if self.client == "forever" then
+        data = CreateCheckbox(panel, "recordMerchants", "Learn from merchants I visit", "Saved locally. Sharing is optional and manual.", data)
+    end
+    local function Action(text, width, x, callback)
+        local button = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+        button:SetSize(width, 24); button:SetPoint("TOPLEFT", data, "BOTTOMLEFT", x, -18)
+        button:SetText(text); button:SetScript("OnClick", callback)
+        return button
+    end
+    Action("Browse", 90, 0, function() VIC:OpenBrowser() end)
+    if self.client == "forever" then Action("Share observations", 155, 95, function() VIC:OpenExport() end) end
+    local reset = Action("Reset settings", 130, 260, function()
+        VIC:OpenChoiceMenu(VIC.optionsPanel, {
+            { label = "Cancel — keep settings", value = false },
+            { label = "Reset settings; preserve observations", value = true },
+        }, function(confirm)
+            if not confirm then return end
+            for key, value in pairs(VIC.defaults) do VIC.settings[key] = value end
+            VIC:RefreshOptions()
+        end)
     end)
+    self.optionsPreview = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    self.optionsPreview:SetPoint("TOPLEFT", reset, "BOTTOMLEFT", -260, -18)
+    self.optionsPreview:SetWidth(480); self.optionsPreview:SetJustifyH("LEFT")
 
     panel:SetScript("OnShow", function()
         VIC:RefreshOptions()

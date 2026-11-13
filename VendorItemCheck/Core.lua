@@ -322,3 +322,49 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
         VIC:GetPlayerFaction()
     end
 end)
+
+-- A small native-button menu shared by both supported clients. Entries are
+-- explicit choices; bounded rows and wheel/buttons keep long zone lists usable.
+function VIC:OpenChoiceMenu(owner, choices, choose)
+    if self.choiceMenu then self.choiceMenu:Hide() end
+    local menu = CreateFrame("Frame", nil, owner, "BasicFrameTemplateWithInset")
+    self.choiceMenu = menu
+    menu:SetSize(290, 284)
+    menu:SetPoint("TOPLEFT", owner, "BOTTOMLEFT", 0, -2)
+    if menu.SetFrameStrata then menu:SetFrameStrata("DIALOG") end
+    if menu.SetClampedToScreen then menu:SetClampedToScreen(true) end
+    local offset, rows = 0, {}
+    local function Refresh()
+        for i, row in ipairs(rows) do
+            local entry = choices[offset + i]
+            row.entry = entry
+            if entry then row:SetText(entry.label); row:Show() else row:Hide() end
+        end
+    end
+    local function Scroll(delta)
+        offset = math.max(0, math.min(math.max(0, #choices - 8), offset + delta))
+        Refresh()
+    end
+    for i = 1, 8 do
+        local row = CreateFrame("Button", nil, menu, "UIPanelButtonTemplate")
+        row:SetSize(264, 24); row:SetPoint("TOPLEFT", 12, -28 - (i - 1) * 26)
+        row:SetScript("OnClick", function()
+            if row.entry then choose(row.entry.value); menu:Hide() end
+        end)
+        rows[i] = row
+    end
+    menu.rows = rows
+    for i, spec in ipairs({ { "Up", -8 }, { "Down", 8 } }) do
+        local button = CreateFrame("Button", nil, menu, "UIPanelButtonTemplate")
+        button:SetSize(125, 24); button:SetPoint("TOPLEFT", 12 + (i - 1) * 138, -242)
+        button:SetText(spec[1])
+        local delta = spec[2]
+        button:SetScript("OnClick", function() Scroll(delta) end)
+    end
+    if menu.EnableMouseWheel then
+        menu:EnableMouseWheel(true)
+        menu:SetScript("OnMouseWheel", function(_, delta) Scroll(-delta) end)
+    end
+    Refresh()
+    return menu
+end

@@ -87,8 +87,15 @@ buttons[1] = false
 Tick()
 assert(not Expanded(tip))
 
--- Remap through the actual settings buttons while the tooltip remains open.
-named.VICControllerModifier.scripts.OnClick()
+-- Select explicit menu entries while the tooltip remains open.
+local function Select(button, value)
+    button.scripts.OnClick()
+    for _, row in ipairs(VIC.choiceMenu.rows) do
+        if row.entry and row.entry.value == value then row.scripts.OnClick(); return end
+    end
+    error("Missing menu choice: " .. tostring(value))
+end
+Select(named.VICControllerModifier, "RT")
 assert(VIC.settings.controllerModifier == "RT" and named.VICControllerModifier:GetText() == "Hold RT / R2")
 assert(Text(tip):find("ALT or RT", 1, true))
 buttons[1] = true
@@ -99,7 +106,7 @@ Tick()
 assert(Expanded(tip))
 buttons[1], buttons[4] = false, false
 for _, choice in ipairs({ { "LB", 6 }, { "RB", 8 } }) do
-    named.VICControllerModifier.scripts.OnClick()
+    Select(named.VICControllerModifier, choice[1])
     assert(VIC.settings.controllerModifier == choice[1])
     buttons[choice[2]] = true
     Tick()
@@ -108,35 +115,35 @@ for _, choice in ipairs({ { "LB", 6 }, { "RB", 8 } }) do
     Tick()
     assert(not Expanded(tip))
 end
-named.VICControllerModifier.scripts.OnClick()
+Select(named.VICControllerModifier, "OFF")
 assert(VIC.settings.controllerModifier == "OFF" and not VIC.tooltipWatcher:GetScript("OnUpdate"))
 assert(Text(tip):find("Hold ALT for locations", 1, true))
-named.VICControllerModifier.scripts.OnClick()
+Select(named.VICControllerModifier, "LT")
 assert(VIC.settings.controllerModifier == "LT")
 
 -- Keyboard remapping, controller-only mode and the existing always-expanded mode.
-named.VICKeyboardModifier.scripts.OnClick()
+Select(named.VICKeyboardModifier, "SHIFT")
 assert(VIC.settings.modifierKey == "SHIFT" and Text(tip):find("SHIFT or LT", 1, true))
 shift = true
 VIC.tooltipWatcher.scripts.OnEvent()
 assert(Expanded(tip))
 shift = false
-named.VICKeyboardModifier.scripts.OnClick()
+Select(named.VICKeyboardModifier, "CTRL")
 assert(VIC.settings.modifierKey == "CTRL")
 ctrl = true
 VIC.tooltipWatcher.scripts.OnEvent()
 assert(Expanded(tip))
 ctrl = false
-named.VICKeyboardModifier.scripts.OnClick()
+Select(named.VICKeyboardModifier, "OFF")
 assert(VIC.settings.modifierKey == "OFF" and Text(tip):find("Hold LT for locations", 1, true))
 alt = true
 Tick()
 assert(not Expanded(tip), "Keyboard-off mode must not respond to Alt")
 alt = false
-named.VICKeyboardModifier.scripts.OnClick()
+Select(named.VICKeyboardModifier, "NONE")
 assert(VIC.settings.modifierKey == "NONE" and Expanded(tip))
 assert(not VIC.tooltipWatcher:GetScript("OnUpdate"), "Always-expanded mode needs no controller polling")
-named.VICKeyboardModifier.scripts.OnClick()
+Select(named.VICKeyboardModifier, "ALT")
 assert(VIC.settings.modifierKey == "ALT")
 VIC:InitializeDB()
 assert(VIC.settings.controllerModifier == "LT" and VendorItemCheckDB.privateSetting == "PRIVATE_TOKEN")
@@ -201,7 +208,12 @@ named.VICOptionenabled.scripts.OnClick(named.VICOptionenabled)
 second:SetHyperlink("item:100002")
 VIC.settings.modifierKey, VIC.settings.controllerModifier = "CTRL", "RB"
 for _, frame in ipairs(created) do
-    if frame.text == "Reset Defaults" then frame.scripts.OnClick() end
+    if frame.text == "Reset settings" then
+        frame.scripts.OnClick()
+        assert(VIC.settings.modifierKey == "CTRL", "Opening reset does not reset settings")
+        VIC.choiceMenu.rows[2].scripts.OnClick()
+        break
+    end
 end
 assert(VIC.settings.modifierKey == "ALT" and VIC.settings.controllerModifier == "LT")
 assert(Text(second):find("ALT or LT", 1, true))
