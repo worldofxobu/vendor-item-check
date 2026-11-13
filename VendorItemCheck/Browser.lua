@@ -92,6 +92,9 @@ function VIC:ShowBrowserNotice(title, message)
         if UISpecialFrames then UISpecialFrames[#UISpecialFrames + 1] = "VendorItemCheckNotice" end
         self.browserNotice = frame
     end
+    if self.browserNotice.SetScale and UIParent and UIParent.GetWidth and UIParent.GetHeight then
+        self.browserNotice:SetScale(math.min(1, (UIParent:GetWidth() - 24) / 470, (UIParent:GetHeight() - 24) / 300))
+    end
     self.browserNotice.heading:SetText(title); self.browserNotice.body:SetText(message)
     self.browserNotice:Show()
 end
@@ -136,7 +139,11 @@ function VIC:RefreshBrowser(rebuild)
     SortRows(rows)
     panel.rows = rows
     panel.page = math.max(1, math.min(panel.page, math.max(1, #rows - 9)))
-    panel.count:SetText(string.format("%d results · scroll to browse", #rows))
+    local loading = false
+    if panel.tab == "items" then
+        for _, row in ipairs(rows) do if not (self.browserNames and self.browserNames[row.id]) then loading = true; break end end
+    end
+    panel.count:SetText(string.format("%d results%s", #rows, loading and " · names loading; search by ID" or " · scroll to browse"))
     for i, button in ipairs(panel.list) do
         local row = rows[panel.page - 1 + i]
         button.row = row
@@ -159,6 +166,15 @@ function VIC:RefreshBrowser(rebuild)
     local expired = previousSelection and not selected
     local details = {}
     panel.destination = nil
+    if panel.itemIcon then
+        if selected and panel.tab == "items" then
+            local api = C_Item and C_Item.GetItemIconByID or GetItemIcon
+            local ok, texture = false, nil
+            if api then ok, texture = pcall(api, selected.id) end
+            panel.itemIcon:SetTexture(ok and texture or "Interface\\Icons\\INV_Misc_QuestionMark")
+            panel.itemIcon:Show()
+        else panel.itemIcon:Hide() end
+    end
     if selected then
         panel.heading:SetText(selected.name .. (panel.tab == "vendors" and " - Known items" or " - Known sellers"))
         if panel.tab == "vendors" then
@@ -194,6 +210,15 @@ function VIC:RefreshBrowser(rebuild)
             button.caption:SetText(row.name .. "\n" .. self:BrowserOfferSummary(row.vendor, row.price))
             button.track:SetText(panel.tab == "items" and "Track" or "Sellers")
             button.track:SetEnabled(panel.tab == "vendors" or self:CanTrackVendor(row.vendor))
+            button.track.tooltipText = self:CanTrackVendor(row.vendor) and "Track recorded vendor location" or "Location unknown or expired; tracking is unavailable."
+            button.track:SetScript("OnEnter", function(b)
+                if GameTooltip and GameTooltip.SetText then
+                    GameTooltip:SetOwner(b, "ANCHOR_RIGHT"); GameTooltip:SetText(b.tooltipText); GameTooltip:Show()
+                elseif b.row and GameTooltip and GameTooltip.SetText then
+                    GameTooltip:SetOwner(b, "ANCHOR_RIGHT"); GameTooltip:SetText(b.row.name); GameTooltip:Show()
+                end
+            end)
+            button.track:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
             button.track:SetScript("OnClick", function()
                 if panel.tab == "items" then self:TrackVendor(row.vendor)
                 else button:GetScript("OnClick")(button) end
@@ -312,8 +337,15 @@ function VIC:OpenBrowser()
         end)
         Label(panel, "Search names or IDs", 22, -101, 300)
         panel.search = Search(panel, 22, -120, 310, function() panel.page = 1; Refresh() end)
+        panel.clearSearch = Button(panel, "X", 310, -120, 30, function()
+            panel.search:SetText(""); panel.page = 1; Refresh()
+        end)
         panel.heading = Label(panel, "", 365, -76, 510)
         panel.description = Label(panel, "", 365, -99, 510)
+        if panel.CreateTexture then
+            panel.itemIcon = panel:CreateTexture(nil, "ARTWORK")
+            panel.itemIcon:SetSize(22, 22)
+        end
         panel.detailSearch = Search(panel, 372, -155, 490, function() panel.detailPage = 1; Refresh() end)
         panel.detailLabel = Label(panel, "Filter sellers or inventory", 372, -137, 490)
         panel.list = {}; panel.details = {}
@@ -324,6 +356,8 @@ function VIC:OpenBrowser()
             button:SetScript("OnEnter", function(b)
                 if panel.tab == "items" and b.row and GameTooltip then
                     GameTooltip:SetOwner(b, "ANCHOR_RIGHT"); GameTooltip:SetHyperlink("item:" .. b.row.id); GameTooltip:Show()
+                elseif b.row and GameTooltip and GameTooltip.SetText then
+                    GameTooltip:SetOwner(b, "ANCHOR_RIGHT"); GameTooltip:SetText(b.row.name); GameTooltip:Show()
                 end
             end)
             button:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
@@ -336,6 +370,7 @@ function VIC:OpenBrowser()
         for i = 1, 6 do
             local button = CreateFrame("Button", nil, panel)
             button:SetPoint("TOPLEFT", 365, -190 - (i - 1) * 55); button:SetSize(365, 53)
+            if button.SetHighlightTexture then button:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD") end
             button.caption = Label(button, "", 0, 0, 355)
             button.track = Button(panel, "Track", 737, -192 - (i - 1) * 55, 65, function()
                 if button.row then self:TrackVendor(button.row.vendor) end
@@ -355,6 +390,8 @@ function VIC:OpenBrowser()
             button:SetScript("OnEnter", function(b)
                 if panel.tab == "vendors" and b.row and GameTooltip then
                     GameTooltip:SetOwner(b, "ANCHOR_RIGHT"); GameTooltip:SetHyperlink("item:" .. b.row.id); GameTooltip:Show()
+                elseif b.row and GameTooltip and GameTooltip.SetText then
+                    GameTooltip:SetOwner(b, "ANCHOR_RIGHT"); GameTooltip:SetText(b.row.name); GameTooltip:Show()
                 end
             end)
             button:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
@@ -412,14 +449,21 @@ function VIC:OpenBrowser()
             self:SetSize(compact and 700 or 900, 620)
             if self.SetScale then self:SetScale(math.min(1, (width - 24) / (compact and 700 or 900), (height - 24) / 620)) end
             Move(self.back, compact and 410 or 680, -35)
-            Move(self.help, compact and 480 or 750, compact and -35 or -68)
+            Move(self.help, compact and 480 or 750, compact and -35 or -68, compact and 65 or 120)
             Move(self.settingsButton, compact and 560 or 750, -35)
             Move(self.source, compact and 260 or 230, compact and -68 or -35, compact and 150 or 170)
             Move(self.faction, 410, compact and -68 or -35, compact and 275 or 260)
             Move(self.zone, 16, -68, 240)
             Move(self.clearFilters, compact and 560 or 260, compact and -101 or -68)
-            Move(self.search, 22, -120, compact and 510 or 310)
+            Move(self.search, 22, -120, compact and 510 or 280)
+            Move(self.clearSearch, compact and 535 or 310, -120)
             Move(self.heading, compact and 22 or 365, compact and -155 or -76, compact and 650 or 510)
+            if self.itemIcon then
+                Move(self.itemIcon, compact and 22 or 365, compact and -155 or -76)
+                if self.selected and self.tab == "items" then
+                    Move(self.heading, compact and 50 or 393, compact and -155 or -76, compact and 620 or 480)
+                end
+            end
             Move(self.description, compact and 22 or 365, compact and -180 or -99, compact and 650 or 510)
             Move(self.detailSearch, compact and 22 or 372, compact and -220 or -155, compact and 510 or 490)
             Move(self.detailLabel, compact and 22 or 372, compact and -204 or -137)
@@ -436,7 +480,9 @@ function VIC:OpenBrowser()
                 if compact and not detail then row:Hide(); row.track:Hide(); row.info:Hide() end
             end
             if compact and not detail then
-                self.heading:Hide(); self.description:Hide(); self.detailSearch:Hide(); self.detailLabel:Hide()
+                if self.rows and #self.rows == 0 then self.heading:Show(); self.description:Show()
+                else self.heading:Hide(); self.description:Hide() end
+                self.detailSearch:Hide(); self.detailLabel:Hide()
                 self.detailCount:Hide(); self.detailsScroll:Hide(); self.track:Hide()
             else
                 self.heading:Show(); self.description:Show()

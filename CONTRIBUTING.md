@@ -347,3 +347,7 @@ Settings reset must require a choice and preserve observations. Preview content 
 labelled example data; it must never enter the vendor index. Price qualification
 and unknown access remain visible in summary rows. Inspect long names, row actions,
 icons, and the optional export window in-game at common UI scales.
+
+Synthetic browser tests exercise compact drill-in, direct seller tracking, slider
+bounds, and filter reset preserving the search. Synthetic settings tests select
+explicit menu entries while tooltips remain open and confirm reset before applying it.

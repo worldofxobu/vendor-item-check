@@ -3,6 +3,12 @@ dofile("tests/smoke.lua")
 local originalCreateFrame = CreateFrame
 function CreateFrame(...)
     local frame = originalCreateFrame(...)
+    function frame:EnableMouseWheel() end
+    function frame:SetMinMaxValues(minimum, maximum) self.minimum = minimum; self.maximum = maximum end
+    function frame:SetValueStep() end
+    function frame:SetValue(value) self.value = value end
+    function frame:SetScale(value) self.scale = value end
+    function frame:ClearAllPoints() end
     function frame:SetEnabled(value) self.enabled = value end
     function frame:SetMovable() end
     function frame:EnableMouse() end
@@ -115,6 +121,44 @@ panel.scripts.OnEvent(panel, "GET_ITEM_INFO_RECEIVED", 20, true)
 panel.filters = {}; VIC:RefreshBrowser(true)
 panel.scripts.OnUpdate(panel, 0.3)
 assert(VIC:BrowserItemName(20) == "Newly Cached")
+
+-- Compact drill-in returns to results, direct tracking preserves item selection.
+UIParent = { GetWidth = function() return 800 end, GetHeight = function() return 600 end }
+panel.filters = {}; panel.search:SetText(""); panel.tab = "items"; panel.selected = nil
+VIC:RefreshBrowser(true)
+assert(panel.compact and not panel.heading.visible)
+panel.list[1].scripts.OnClick(panel.list[1])
+assert(panel.selected and panel.heading.visible and not panel.list[1]:IsVisible())
+local selected = panel.selected
+panel.details[1].track.scripts.OnClick()
+assert(VIC.trackedVendor and panel.selected == selected, "Direct tracking stays on the item")
+panel.history = {}
+panel.back.scripts.OnClick()
+assert(not panel.selected and panel.list[1]:IsVisible())
+UIParent = nil
+
+-- Long result lists clamp scrolling; reset filters does not clear the query.
+VIC.Items = {}
+VIC.personalIndex = {}
+for id = 100, 125 do
+    VIC.Items[id] = { v = { 1 }, offers = { [1] = { expires = now + 100, reporters = 3 } } }
+end
+panel.search:SetText(""); panel.tab = "items"; panel.selected = nil
+VIC:RefreshBrowser(true)
+assert(#panel.rows == 26)
+panel.list[1].scripts.OnMouseWheel(panel.list[1], -100)
+assert(panel.page == 17 and panel.resultsScroll.value == 17)
+panel.resultsScroll.scripts.OnValueChanged(panel.resultsScroll, 1)
+assert(panel.page == 1)
+panel.search:SetText("100"); panel.filters.zone = "missing"
+VIC:RefreshBrowser(true)
+panel.clearFilters.scripts.OnClick()
+assert(panel.search:GetText() == "100" and #panel.rows == 1)
+-- Menu choices are explicit and opening a menu has no filtering side effect.
+panel.source.scripts.OnClick()
+assert(not panel.filters.source)
+VIC.choiceMenu.rows[2].scripts.OnClick()
+assert(panel.filters.source == "personal")
 
 VIC.client = "classic"; VIC.personalIndex = nil
 VIC.Items = { [30] = { v = { 3, 4 }, p = 25 } }

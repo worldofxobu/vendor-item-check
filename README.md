@@ -128,7 +128,7 @@ information. **Help** explains navigation and **Data details** explains coverage
 Item icons use client information; uncached names remain searchable by ID.
 
 On smaller screens the browser shows results and details on separate pages.
-Use **Back** to return to results. The window fits the available screen and
+Use **Back** to return to results. The search clear button removes the query without changing filters. The window fits the available screen and
 remains clamped to its edges.
 
 ## Configuration
@@ -165,7 +165,7 @@ If the game already makes a controller button emulate Alt/Shift/Ctrl, that also
 activates the corresponding keyboard choice. Classic Era retains keyboard expansion.
 Unavailable controller APIs fall back to keyboard input and a keyboard-only hint.
 
-Settings are grouped into tooltips, controls, and merchant learning/data. A sample tooltip updates when settings change. Reset settings requires confirmation and preserves observations. Sharing remains optional and manual.
+Settings scroll within the native options panel and are grouped into tooltips, controls, and merchant learning/data. A sample tooltip updates when settings change. Reset settings requires confirmation and preserves observations. Sharing remains optional and manual.
 
 ## Troubleshooting
 

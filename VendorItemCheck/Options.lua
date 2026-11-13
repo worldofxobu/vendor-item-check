@@ -71,7 +71,7 @@ local function CreateStepper(panel, key, label, minimum, maximum, step, anchor)
     return row
 end
 
-local function CreateModifierCycle(panel, anchor, key, caption, choices, labels, buttonName)
+local function CreateModifierSelector(panel, anchor, key, caption, choices, labels, buttonName)
     local row = CreateFrame("Frame", nil, panel)
     row:SetSize(460, 28)
     row:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -14)
@@ -83,14 +83,6 @@ local function CreateModifierCycle(panel, anchor, key, caption, choices, labels,
     local btn = CreateFrame("Button", buttonName, row, "UIPanelButtonTemplate")
     btn:SetSize(180, 22)
     btn:SetPoint("LEFT", 240, 0)
-
-    local function GetCurrentIndex()
-        local current = VIC.settings[key] or VIC.defaults[key]
-        for i, k in ipairs(choices) do
-            if k == current then return i end
-        end
-        return 1
-    end
 
     local function UpdateButton()
         local current = VIC.settings[key] or VIC.defaults[key]
@@ -128,9 +120,9 @@ function VIC:RefreshOptions()
     if self.optionsPreview then
         local key = self.settings.modifierKey
         self.optionsPreview:SetText("Example tooltip (sample data)\nSold by vendor"
-            .. (self.settings.showPrice and ": 10s (Classic reference)" or "")
+            .. (self.settings.showPrice and (self.client == "forever" and ": 10s (example observed quote)" or ": 10s (Classic reference)") or "")
             .. "\n" .. (KEYBOARD_LABELS[key] or "Hold ALT")
-            .. " for locations · up to " .. tostring(self.settings.maxVendors) .. " vendors"
+            .. (key == "NONE" and " · locations always visible" or key == "OFF" and " · use your controller choice for locations" or " for locations") .. " · up to " .. tostring(self.settings.maxVendors) .. " vendors"
             .. (self.settings.showCoordinates and "\nExample Vendor · Example Zone (45.0, 62.0)" or "\nExample Vendor · Example Zone"))
     end
     if self.RefreshVendorTooltips then self:RefreshVendorTooltips(true) end
@@ -148,6 +140,12 @@ end
 function VIC:CreateOptionsPanel()
     local panel = CreateFrame("Frame", "VendorItemCheckOptionsPanel", UIParent)
     panel.name = self.title
+    local categoryPanel = panel
+    local scroll = CreateFrame("ScrollFrame", nil, categoryPanel, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", 0, 0); scroll:SetPoint("BOTTOMRIGHT", -30, 0)
+    panel = CreateFrame("Frame", nil, scroll)
+    panel:SetSize(560, 850)
+    scroll:SetScrollChild(panel)
 
     local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", 16, -16)
@@ -175,10 +173,10 @@ function VIC:CreateOptionsPanel()
     local price = CreateCheckbox(panel, "showPrice", "Show qualified purchase prices", "Classic reference values or this character's observed quotes.", coords)
     local faction = CreateCheckbox(panel, "showFaction", "Show faction tags", "Unknown access remains unverified.", price)
     local controlsHeading = Heading("Controls", faction)
-    local modifier = CreateModifierCycle(panel, controlsHeading, "modifierKey", "Keyboard expansion:",
+    local modifier = CreateModifierSelector(panel, controlsHeading, "modifierKey", "Keyboard expansion:",
         VIC.keyboardModifiers, KEYBOARD_LABELS, "VICKeyboardModifier")
     if self.client == "forever" then
-        modifier = CreateModifierCycle(panel, modifier, "controllerModifier", "Controller expansion:",
+        modifier = CreateModifierSelector(panel, modifier, "controllerModifier", "Controller expansion:",
             VIC.controllerModifiers, CONTROLLER_LABELS, "VICControllerModifier")
         local hint = Heading("Controller expansion requires supported gamepad APIs; keyboard input remains available.", modifier)
         modifier = hint
@@ -195,8 +193,8 @@ function VIC:CreateOptionsPanel()
     end
     Action("Browse", 90, 0, function() VIC:OpenBrowser() end)
     if self.client == "forever" then Action("Share observations", 155, 95, function() VIC:OpenExport() end) end
-    local reset = Action("Reset settings", 130, 260, function()
-        VIC:OpenChoiceMenu(VIC.optionsPanel, {
+    local reset = Action("Reset settings", 130, 260, function(button)
+        VIC:OpenChoiceMenu(button or VIC.optionsPanel, {
             { label = "Cancel — keep settings", value = false },
             { label = "Reset settings; preserve observations", value = true },
         }, function(confirm)
@@ -209,18 +207,18 @@ function VIC:CreateOptionsPanel()
     self.optionsPreview:SetPoint("TOPLEFT", reset, "BOTTOMLEFT", -260, -18)
     self.optionsPreview:SetWidth(480); self.optionsPreview:SetJustifyH("LEFT")
 
-    panel:SetScript("OnShow", function()
+    categoryPanel:SetScript("OnShow", function()
         VIC:RefreshOptions()
     end)
 
-    self.optionsPanel = panel
+    self.optionsPanel = categoryPanel
 
     if Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory then
-        local category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
+        local category = Settings.RegisterCanvasLayoutCategory(categoryPanel, categoryPanel.name)
         Settings.RegisterAddOnCategory(category)
         self.settingsCategoryID = category:GetID()
     elseif InterfaceOptions_AddCategory then
-        InterfaceOptions_AddCategory(panel)
+        InterfaceOptions_AddCategory(categoryPanel)
     end
 
     self:RefreshOptions()

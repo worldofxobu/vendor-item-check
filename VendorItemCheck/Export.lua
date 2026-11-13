@@ -83,6 +83,8 @@ function VIC:OpenExport()
         local panel = CreateFrame("Frame", "VendorItemCheckExport", UIParent, "BasicFrameTemplateWithInset")
         panel:SetSize(640, 450)
         panel:SetPoint("CENTER")
+        if panel.SetClampedToScreen then panel:SetClampedToScreen(true) end
+        if UISpecialFrames then UISpecialFrames[#UISpecialFrames + 1] = "VendorItemCheckExport" end
         local title = panel.TitleText or panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         title:SetText("Vendor Item Check - Share observations")
         local notice = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
@@ -123,5 +125,8 @@ function VIC:OpenExport()
         self.exportPanel, self.exportBox, self.exportPrepare = panel, box, prepare
     end
     self.exportBox:SetText("")
+    if self.exportPanel.SetScale and UIParent and UIParent.GetWidth and UIParent.GetHeight then
+        self.exportPanel:SetScale(math.min(1, (UIParent:GetWidth() - 24) / 640, (UIParent:GetHeight() - 24) / 450))
+    end
     self.exportPanel:Show()
 end

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replace cycling browser filters and expansion controls with explicit choice menus.
 - Browse scrollable item/vendor lists with remembered tab state, Back navigation, direct seller tracking, and expandable offer details.
 - Add compact screen layouts, browser help and coverage details, grouped settings with a sample preview, and confirmation before resetting settings.
+- Fit sharing and detail windows to the viewport and make settings scrollable.
 - Keep tracking coordinates visible when map waypoint creation fails.
 
 

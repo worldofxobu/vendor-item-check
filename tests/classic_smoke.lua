@@ -69,6 +69,7 @@ function CreateFrame(frameType, name, parent, template)
         return self.name
     end
     function f:SetSize(w, h) end
+    function f:SetScrollChild(child) self.child = child end
     function f:SetPoint(p, a, b, c, d) end
     function f:SetText(t) self.text = t end
     function f:GetText() return self.text end
