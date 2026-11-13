@@ -73,7 +73,7 @@ function VIC:TrackVendor(vendor)
         local map = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
         map:SetPoint("BOTTOMLEFT", 12, 12); map:SetSize(130, 24); map:SetText("Show on map")
         map:SetScript("OnClick", function()
-            if not self:ShowTrackedVendorOnMap() then panel.text:SetText(panel.text:GetText() .. "\nMap waypoint unavailable.") end
+            if not self:ShowTrackedVendorOnMap() then panel.text:SetText("Map waypoint unavailable. Use the recorded coordinates or select the vendor again.") end
         end)
         panel.map = map
         local stop = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")

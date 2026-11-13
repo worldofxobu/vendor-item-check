@@ -122,11 +122,12 @@ replaces the current native waypoint.
 
 ## Configuration
 
-Type `/vic` or `/vendorcheck` to open the addon settings.
+Type `/vic` or `/vendorcheck` to open the browser. Use `/vic settings` for addon settings.
 
 | Command | Description |
 | --- | --- |
-| `/vic` | Open addon settings panel. |
+| `/vic` | Open the item and vendor browser. |
+| `/vic settings` | Open addon settings. |
 | `/vic browse` | Search known items and browse vendor inventories. |
 | `/vic toggle` | Enable or disable tooltip enhancements. |
 | `/vic status` | Show database item/vendor counts and current settings. |
@@ -145,7 +146,7 @@ Options configurable in the settings panel:
 - **Show Purchase Price**: Display Classic Era reference prices and personal Forever quotes.
 - **Show Faction Tag**: Display `[Alliance]`, `[Horde]`, or `[Neutral]` tags.
 
-Open `/vic` and click either modifier selector to cycle its choices. Keyboard and
+Open `/vic settings` and click either modifier selector to cycle its choices. Keyboard and
 controller inputs work independently: either selected input can expand the tooltip.
 Choose **Keyboard off** for controller-only expansion, or **Always expanded** to
 show details without holding anything. These modifier settings apply immediately and survive reloads.
@@ -164,3 +165,5 @@ If vendor information does not appear:
 ## License
 
 Addon code is released under the [MIT License](LICENSE). Shared Forever observation exports and the derived bundled database use CC BY-SA 4.0; see [data attribution](VendorItemCheck/DATA_LICENSE.md).
+
+The browser includes a Settings button and a Back button. Back restores the previous item or vendor selection, searches, and result pages after following an inventory or seller link.

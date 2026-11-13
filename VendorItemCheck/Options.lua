@@ -238,7 +238,9 @@ function VIC:OptionsInitialize()
                 VIC:Print("Personal prices are observed quotes for this character. Missing data is unknown.")
                 VIC:Print("%s", metadata.credit or "Data from Everloot (https://everloot.app), CC BY-SA 4.0.")
             end
-        elseif cmd == "browse" then
+        elseif cmd == "settings" then
+            VIC:OpenOptions()
+        elseif cmd == "browse" or cmd == "" then
             VIC:OpenBrowser()
         elseif cmd == "export" and VIC.OpenExport then
             VIC:OpenExport()
@@ -257,7 +259,8 @@ function VIC:OptionsInitialize()
             VIC:Print("Max vendors set to %d.", n)
         elseif cmd == "help" then
             VIC:Print("Commands:")
-            VIC:Print("  /vic - Open settings")
+            VIC:Print("  /vic - Browse known items and vendors")
+            VIC:Print("  /vic settings - Open settings")
             VIC:Print("  /vic browse - Browse known items and vendors")
             VIC:Print("  /vic toggle - Toggle enabled state")
             VIC:Print("  /vic status - Display index count and configuration")

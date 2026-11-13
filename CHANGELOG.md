@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Open the browser with /vic and settings with /vic settings; restore item/vendor browsing context with Back. Simplify result labels and keep the browser on screen.
+
+
 ### Fixed
 - Forever no longer displays historical Classic inventories, locations, faction restrictions, or prices as Forever data.
 - Client-specific TOCs use matching Forever or Classic Era interface numbers, preventing flavor mismatch errors during packaging.

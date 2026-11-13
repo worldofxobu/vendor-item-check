@@ -110,7 +110,7 @@ function VIC:RefreshBrowser(rebuild)
     for i, button in ipairs(panel.list) do
         local row = rows[(panel.page - 1) * 10 + i]
         button.row = row
-        if row then button:SetText(row.name .. " (" .. row.id .. ")"); button:Show() else button:Hide() end
+        if row then button:SetText(row.name); button:Show() else button:Hide() end
     end
     local selected = panel.selected and panel.index[panel.tab][panel.selected]
     local details = {}
@@ -147,6 +147,7 @@ function VIC:RefreshBrowser(rebuild)
             button:Show()
         else button:Hide() end
     end
+    if panel.back then panel.back:SetEnabled(#panel.history > 0) end
     panel.track:SetEnabled(self:CanTrackVendor(panel.destination))
 end
 
@@ -156,17 +157,28 @@ function VIC:OpenBrowser()
         self.browserPanel = panel
         panel:SetSize(900, 620)
         panel:SetPoint("CENTER")
+        if panel.SetClampedToScreen then panel:SetClampedToScreen(true) end
         panel:SetMovable(true); panel:EnableMouse(true); panel:RegisterForDrag("LeftButton")
         panel:SetScript("OnDragStart", panel.StartMoving)
         panel:SetScript("OnDragStop", panel.StopMovingOrSizing)
         if UISpecialFrames then UISpecialFrames[#UISpecialFrames + 1] = "VendorItemCheckBrowser" end
         (panel.TitleText or Label(panel, "", 15, -8, 700)):SetText("Vendor Item Check - Browser")
+        panel.history = {}
         panel.filters = {}; panel.tab = "items"; panel.page = 1; panel.detailPage = 1
         local function Refresh() self:RefreshBrowser() end
         local function ChangeTab(tab)
             panel.tab = tab; panel.page = 1; panel.selected = nil; panel.detailPage = 1
             panel.search:SetText(""); panel.detailSearch:SetText(""); Refresh()
         end
+        panel.back = Button(panel, "Back", 680, -35, 65, function()
+            local state = table.remove(panel.history)
+            if not state then return end
+            panel.tab = state.tab; panel.selected = state.selected
+            panel.search:SetText(state.search); panel.detailSearch:SetText(state.detailSearch)
+            panel.page = state.page; panel.detailPage = state.detailPage
+            Refresh()
+        end)
+        Button(panel, "Settings", 750, -35, 120, function() self:OpenOptions() end)
         Button(panel, "Items", 16, -35, 100, function() ChangeTab("items") end)
         Button(panel, "Vendors", 120, -35, 100, function() ChangeTab("vendors") end)
         local sources = { "all", "personal", "bundled" }; local sourceIndex = 1
@@ -199,7 +211,7 @@ function VIC:OpenBrowser()
         panel.heading = Label(panel, "", 365, -76, 510)
         panel.description = Label(panel, "", 365, -99, 510)
         panel.detailSearch = Search(panel, 372, -155, 490, function() panel.detailPage = 1; Refresh() end)
-        Label(panel, "Filter selected inventory / sellers by name or ID", 372, -137, 490)
+        Label(panel, "Filter sellers or inventory", 372, -137, 490)
         panel.list = {}; panel.details = {}
         for i = 1, 10 do
             local button = Button(panel, "", 16, -155 - (i - 1) * 37, 330, function(b)
@@ -219,6 +231,11 @@ function VIC:OpenBrowser()
             button.caption = Label(button, "", 0, 0, 510)
             button:SetScript("OnClick", function(b)
                 local id = b.row.id
+                panel.history[#panel.history + 1] = {
+                    tab = panel.tab, selected = panel.selected, page = panel.page,
+                    detailPage = panel.detailPage, search = panel.search:GetText(),
+                    detailSearch = panel.detailSearch:GetText(),
+                }
                 panel.tab = panel.tab == "items" and "vendors" or "items"
                 panel.selected = id; panel.page = 1; panel.detailPage = 1
                 panel.search:SetText(""); panel.detailSearch:SetText(""); Refresh()
