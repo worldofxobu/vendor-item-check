@@ -21,7 +21,7 @@ Your own observations are usable immediately and expire after 30 days. Prices an
 The bundled Forever database combines eligible [Everloot observations](https://everloot.app/docs/api) with reviewed player contributions. At least three independent reporters are required for a shared item/vendor relation. Classic inventories, coordinates, faction access, and prices are never substituted for missing Forever data.
 
 <!-- forever-coverage:start -->
-**Bundled Forever coverage:** 2 confirmed items and 2 vendors. Source observations as of `2026-11-09T08:20:14.478Z`.
+**Bundled Forever coverage:** 56 confirmed items and 30 vendors. Source observations as of `2026-11-16T09:00:16.696Z`.
 <!-- forever-coverage:end -->
 
 Missing data does not mean the item cannot be bought.

@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional manual JSON exports of Forever observations, with explicit sharing terms and private character/account data excluded.
 - Reviewed community contributions in bundled data builds and weekly update PRs, requiring three independent contributors and retaining price context and source checksums.
 - Automatic local merchant recording on Forever, with dated observations, character-specific purchase quotes, exact batch quantities, recording controls, and 30-day expiry.
-- Forever vendor snapshot: 2 confirmed items and 2 vendors (source observations as of 2026-11-09T08:20:14.478Z).
+- Forever vendor snapshot: 56 confirmed items and 30 vendors (source observations as of 2026-11-16T09:00:16.696Z).
 - Weekly review PRs for confirmed Forever vendor data, with automatic coverage documentation updates and checks before proposing changes.
 - Separate Forever dataset using corroborated live Everloot observations, with source metadata in `/vic status`, independent expiry, and explicit unknown access/location handling.
 - Reproducible offline Forever data builds and an explicit refresh command. The initial source snapshot has no qualifying vendor offers; unknown items receive no tooltip section.
