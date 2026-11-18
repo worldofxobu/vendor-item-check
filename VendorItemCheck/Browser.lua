@@ -288,6 +288,10 @@ function VIC:RefreshBrowser(rebuild)
             panel.destination = selected.vendor
             panel.description:SetText((selected.vendor.zone or "Location unknown") .. " · " .. #details .. " known items")
         else
+            if self.settings.showClosestFirst then
+                local zone, x, y = self:GetPlayerLocation()
+                self:SortVendorsByProximity(selected.vendors, zone, x, y)
+            end
             for _, vendor in ipairs(selected.vendors) do
                 details[#details + 1] = { id = vendor.id, name = vendor.name, vendor = vendor,
                     price = (self.client == "classic" and self.Items[selected.id] and self.Items[selected.id].p) or nil }

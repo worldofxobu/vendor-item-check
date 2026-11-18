@@ -1,0 +1,199 @@
+import test from "wowlua:test"
+import * as mock from "wowlua:mock"
+
+local items = {
+    { id = 900101, name = "Fixture Zebra Seed", price = 400, stack = 1, available = -1 },
+    { id = 900102, name = "Fixture Arcane Infusion", price = 105, stack = 2, available = 3 },
+    { id = 900103, name = "Fixture Bitter Root", price = 85, stack = 1, available = 0 },
+    { id = 900104, name = "Fixture Copper Vial", price = 120, stack = 1, available = 4 },
+    { id = 900105, name = "Fixture Dark Dye", price = 125, stack = 1, available = -1 },
+    { id = 900106, name = "Fixture Ember Powder", price = 130, stack = 1, available = -1 },
+    { id = 900107, name = "Fixture Fine Thread", price = 135, stack = 1, available = -1 },
+    { id = 900108, name = "Fixture Glass Flask", price = 140, stack = 1, available = -1 },
+    { id = 900109, name = "Fixture Heavy Salt", price = 145, stack = 1, available = -1 },
+    { id = 900110, name = "Fixture Indigo Pigment", price = 150, stack = 1, available = -1 },
+    { id = 900111, name = "Fixture Journeybread with Very Long Enchanted Ingredients", price = 200050, stack = 50, available = 250 },
+}
+
+local farID = 900001
+local nearID = 900002
+local trackedItem = 900102
+local farName = "Bronze Reagent Merchant of the Eastern Trade Consortium"
+local nearName = "Zephyr Supply Merchant"
+
+local function addon(): any
+    local vic: any = _G["VendorItemCheck"]
+    assert(vic and vic.client == "forever" and vic.settings.recordMerchants, "Forever merchant recording did not initialize")
+    return vic
+end
+
+local function farMerchant()
+    local slots: any = {}
+    for i, item in ipairs(items) do
+        mock.defineItem(item.id, { name = item.name, icon = 134712, maxStack = 200, quality = 1 })
+        slots[i] = { id = item.id, price = item.price, stack = item.stack, available = item.available }
+    end
+    mock.moveTo({ mapID = 1429, zone = "Elwynn Forest", x = 0.22, y = 0.35 })
+    local npc = mock.spawnUnit({
+        name = farName, guid = "Creature-0-1-2-3-900001-0000000001", reaction = "friendly", distance = 2,
+    })
+    mock.defineVendor(npc, { items = slots })
+    mock.player:interact(npc)
+    mock.waitUntil(function() return GetMerchantNumItems() == #items end, "merchant inventory")
+    mock.waitUntil(function() return addon():GetItemVendors(trackedItem) ~= nil end, "recorded merchant offers")
+end
+
+local function nearMerchant()
+    mock.closeMerchant()
+    mock.moveTo({ mapID = 1429, zone = "Elwynn Forest", x = 0.61, y = 0.52 })
+    local npc = mock.spawnUnit({
+        name = nearName, guid = "Creature-0-1-2-3-900002-0000000002", reaction = "friendly", distance = 2,
+    })
+    mock.defineVendor(npc, { items = { { id = trackedItem, price = 200, stack = 2, available = -1 } } })
+    mock.player:interact(npc)
+    mock.waitUntil(function() return addon():GetItemVendors(trackedItem).totalCount == 2 end, "second merchant")
+    mock.closeMerchant()
+    mock.waitSeconds(0.25)
+end
+
+local function browser(): any
+    mock.slash("/vic")
+    local panel = addon().browserPanel
+    assert(panel and panel:IsVisible(), "/vic did not open the browser")
+    return panel
+end
+
+local function choose(button: any, label: string)
+    mock.click(button)
+    local menu = addon().choiceMenu
+    assert(menu:IsVisible(), "the menu did not open")
+    for _, row in ipairs(menu.rows) do
+        if row:IsVisible() and row:GetText() == label then
+            mock.click(row)
+            assert(not menu:IsShown(), "the menu did not close")
+            return
+        end
+    end
+    error("Missing menu choice: " .. label)
+end
+
+local function selectVendor(panel: any)
+    if panel.tab ~= "vendors" then mock.click(panel.vendorsTab) end
+    mock.click(panel.clearSearch)
+    mock.typeText(panel.search, "Bronze")
+    assert(#panel.rows == 1 and panel.rows[1].id == farID, "vendor name search")
+    mock.click(panel.list[1])
+    assert(panel.selected == farID and panel.heading:GetText() == farName, "vendor selection")
+end
+
+local function selectItem(panel: any)
+    if panel.tab ~= "items" then mock.click(panel.itemsTab) end
+    mock.click(panel.clearSearch)
+    mock.typeText(panel.search, tostring(trackedItem))
+    assert(#panel.rows == 1 and panel.rows[1].id == trackedItem, "item ID search")
+    mock.click(panel.list[1])
+    assert(panel.selected == trackedItem and panel.heading:GetText() == "Fixture Arcane Infusion", "item selection")
+end
+
+local function hasLine(lines: string[], fragment: string): boolean
+    for _, line in ipairs(lines) do
+        if line:find(fragment, 1, true) then return true end
+    end
+    return false
+end
+
+local function separated(first: any, second: any, reason: string)
+    assert(first:GetRight() <= second:GetLeft() + 0.1 or second:GetRight() <= first:GetLeft() + 0.1 or
+        first:GetTop() <= second:GetBottom() + 0.1 or second:GetTop() <= first:GetBottom() + 0.1, reason)
+end
+
+@test("renders the native merchant window and records its inventory")
+local function merchantWindow()
+    farMerchant()
+    local frame: any = _G["MerchantFrame"]
+    assert(frame and frame:IsVisible(), "the native merchant window did not open")
+    local vic = addon()
+    local offer = vic:GetItemVendors(trackedItem).vendors[1]
+    assert(vic:GetItemVendors(items[3].id).vendors[1].stock == 0, "sold-out offers were not recorded")
+    assert(offer.id == farID and offer.name == farName, "merchant identity")
+    assert(offer.stock == 3 and offer.quantity == 2 and offer.copper == 105, "observed stock and batch cost")
+end
+
+@test("renders the vendor inventory and supports filters, paging and selection")
+local function inventory()
+    mock.closeMerchant()
+    local panel = browser()
+    -- Open the browser before visiting so the merchant events must update an open panel.
+    farMerchant()
+    mock.closeMerchant()
+    mock.waitSeconds(0.3)
+    selectVendor(panel)
+    assert(panel.detailCount:GetText() == "Page 1 of 2", "eight items per page")
+    assert(panel.details[1].row.id == trackedItem, "inventory must be sorted by name")
+    assert(panel.details[2].row.id == items[3].id, "the second item is alphabetical")
+    separated(panel.details[1], panel.details[2], "inventory cards overlap")
+    separated(panel.detailSearch, panel.stock, "inventory search overlaps stock filter")
+    mock.click(panel.next)
+    assert(panel.detailCount:GetText() == "Page 2 of 2" and panel.details[3].row.id == items[1].id, "last inventory page")
+    mock.click(panel.previous)
+    choose(panel.stock, "Sold out")
+    assert(panel.details[1].row.id == items[3].id and not panel.details[2].row, "sold-out stock filter")
+    choose(panel.stock, "In stock")
+    assert(panel.details[1].row.id == trackedItem and panel.details[2].row.id == items[4].id, "in-stock filter")
+    choose(panel.stock, "Unknown stock")
+    assert(not panel.details[1].row, "known stock cannot match unknown stock")
+    choose(panel.stock, "All stock")
+    mock.typeText(panel.detailSearch, "Arcane")
+    assert(panel.details[1].row.id == trackedItem and not panel.details[2].row, "inventory name search")
+    mock.click(panel.details[1])
+    assert(panel.tab == "items" and panel.selected == trackedItem, "inventory click should open the item")
+    mock.click(panel.back)
+    assert(panel.tab == "vendors" and panel.selected == farID and panel.detailSearch:GetText() == "Arcane",
+        "Back restores inventory selection and search")
+    choose(panel.source, "Bundled data")
+    assert(not panel.index.vendors[farID], "bundled filter included a personal merchant")
+    mock.click(panel.clearFilters)
+    assert(panel.search:GetText() == "Bronze" and panel.index.vendors[farID], "reset lost the search or merchant")
+    mock.click(panel.list[1])
+end
+
+@test("renders the observed sellers and expands the item tooltip")
+local function sellers()
+    local vic = addon()
+    if vic.browserPanel then vic.browserPanel:Hide() end
+    farMerchant()
+    nearMerchant()
+    local panel = browser()
+    selectItem(panel)
+    assert(panel.detailCount:GetText() == "2 sellers", "both visits should be visible")
+    mock.click(panel.details[1].info)
+    assert(panel.expandedSummary:IsShown() and panel.expandedSummary:GetText():find("Observed", 1, true),
+        "seller evidence did not open")
+    local compactLines = mock.showTooltip("item", { id = trackedItem })
+    assert(hasLine(compactLines, "Sold by vendor") and not hasLine(compactLines, nearName), "the tooltip should start compact")
+    mock.setModifiers({ alt = true })
+    local expandedLines = mock.showTooltip("item", { id = trackedItem })
+    assert(hasLine(expandedLines, nearName) and hasLine(expandedLines, farName), "Alt should show both known vendors")
+    mock.setModifiers({})
+    local collapsedLines = mock.showTooltip("item", { id = trackedItem })
+    assert(not hasLine(collapsedLines, nearName), "releasing Alt should collapse the tooltip")
+    mock.hover(nil)
+    GameTooltip:Hide()
+end
+
+@test("orders observed sellers by proximity or name")
+local function sorting()
+    local vic = addon()
+    if vic.browserPanel then vic.browserPanel:Hide() end
+    farMerchant()
+    nearMerchant()
+    local panel = browser()
+    selectItem(panel)
+    assert(panel.details[1].row.id == nearID and panel.details[2].row.id == farID,
+        "closest-first setting should put the nearby merchant first")
+    vic.settings.showClosestFirst = false
+    vic:RefreshBrowser()
+    assert(panel.details[1].row.id == farID and panel.details[2].row.id == nearID,
+        "disabling closest-first should order merchants by name")
+    vic.settings.showClosestFirst = true
+end

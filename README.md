@@ -90,7 +90,8 @@ Run `/vic browse`, or click **Browse vendors and items** in settings, to open th
 browser. The **Items** tab searches known items by name or item ID and lists their
 sellers. The **Vendors** tab searches names or NPC IDs and shows each vendor's
 **known items**. Click a seller or inventory item to move between the two views;
-hover an item for its tooltip. Scroll either list with the mouse wheel or drag its scrollbar.
+hover an item for its tooltip. Sellers are ordered by proximity when **Prioritize nearby vendors**
+is enabled, or by name when it is off. Scroll either list with the mouse wheel or drag its scrollbar.
 
 Filter by source (**All**, **Personal**, or **Bundled**), zone, or faction access.
 Open the zone menu to select a zone or All zones. Long menus support scrolling and Up/Down buttons. Access defaults

@@ -90,6 +90,14 @@ name loading, expiry, quote privacy and waypoint ownership checks. In each suppo
 client, also inspect layout at common UI scales, long/localized names, item hover,
 search/paging, live merchant refresh, and map/coordinate fallback behavior. Verify closing the browser, replacing destinations, and preserving user waypoints.
 
+Run `python3 tests/run_wowlua.py --wow PATH_TO_WORLD_OF_WARCRAFT` with
+WoWLua 0.13 and a Forever installation to emulate merchant visits with Blizzard's
+UI. The runner builds a temporary project from the existing TOCs. It exercises
+merchant recording, browser filters, sorting, paging, navigation and tooltips.
+Use `--screenshots .cache/wowlua-review` to render the merchant window and browser
+states, or add `--compact` for the small viewport. WoWLua may need network access
+to initialize its Blizzard UI cache on a first run.
+
 ## Vendor data pipeline
 
 The addon ships separate Classic Era and Forever datasets. Runtime code selects the
