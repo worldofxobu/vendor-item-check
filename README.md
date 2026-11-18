@@ -78,6 +78,9 @@ A single download targets both clients:
     +8 more vendors across Azeroth
   ```
 
+On narrow screens, the expanded tooltip shows each seller's location and price
+below their name.
+
 On Forever, **LT / L2** also expands a visible item tooltip by default. Holding the
 trigger continues its normal action-bar behavior; the addon only observes it while
 a vendor item tooltip is showing. Release it to collapse, or keep holding Alt to

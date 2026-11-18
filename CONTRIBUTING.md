@@ -95,8 +95,9 @@ WoWLua 0.13 and a Forever installation to emulate merchant visits with Blizzard'
 UI. The runner builds a temporary project from the existing TOCs. It exercises
 merchant recording, browser filters, sorting, paging, navigation, tooltip refresh
 and browser text layout. Use `--screenshots .cache/wowlua-review` to render the
-merchant window, browser states and expanded tooltip, or add `--compact` for the small viewport. WoWLua may need network access
-to initialize its Blizzard UI cache on a first run.
+merchant window, browser states and expanded tooltip. Add `--compact` to test the
+narrow browser layout and tooltip width. WoWLua may need network access to
+initialize its Blizzard UI cache on a first run.
 
 ## Vendor data pipeline
 

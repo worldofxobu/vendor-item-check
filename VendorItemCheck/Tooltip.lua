@@ -203,6 +203,8 @@ function VIC:AddVendorSection(tooltip, itemID, itemInfo, isExpanded, hintKey, pr
 
         local maxShown = math.max(1, tonumber(settings.maxVendors) or 4)
         local count = math.min(#vendors, maxShown)
+        local screenWidth = UIParent and UIParent.GetWidth and UIParent:GetWidth()
+        local narrow = screenWidth and screenWidth < 560
 
         for i = 1, count do
             local v = vendors[i]
@@ -221,7 +223,12 @@ function VIC:AddVendorSection(tooltip, itemID, itemInfo, isExpanded, hintKey, pr
             end
 
             local right = table.concat(rightParts, " ")
-            tooltip:AddDoubleLine(left, right, 1, 1, 1, 0.8, 0.8, 0.8)
+            if narrow then
+                tooltip:AddLine(left, 1, 1, 1, true)
+                tooltip:AddLine("    " .. right, 0.8, 0.8, 0.8, true)
+            else
+                tooltip:AddDoubleLine(left, right, 1, 1, 1, 0.8, 0.8, 0.8)
+            end
         end
 
         if #vendors > count then

@@ -254,4 +254,8 @@ local function tooltip()
     mock.setModifiers({ alt = true })
     local lines = mock.showTooltip("item", { id = trackedItem })
     assert(GameTooltip:IsVisible() and hasLine(lines, farName) and hasLine(lines, nearName), "expanded tooltip is incomplete")
+    if GetPhysicalScreenSize() == 480 then
+        assert(GameTooltip:GetWidth() <= UIParent:GetWidth(), "vendor lines make the tooltip wider than the viewport")
+        assert(hasLine(lines, "Elwynn Forest") and hasLine(lines, " / 2"), "narrow tooltip lost the location or batch quote")
+    end
 end
