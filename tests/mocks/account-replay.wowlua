@@ -1,7 +1,10 @@
 local db: any = rawget(_G, "VendorItemCheckDB")
-if db and db.observations and db.observations.reporterId == "vic-00000000000000000000000000000001" then
+local personalReplay: any = rawget(_G, "VendorItemCheckLocalReplay")
+local fixture = db and db.observations and db.observations.reporterId == "vic-00000000000000000000000000000001"
+if personalReplay or fixture then
     -- WoWLua's virtual date predates these observations. Replay them as of the capture.
-    _G["GetServerTime"] = function() return 1795018798 end
+    local asOf = personalReplay and personalReplay.asOf or 1795018798
+    _G["GetServerTime"] = function() return asOf end
 
     local frame = CreateFrame("Frame")
     frame:RegisterEvent("PLAYER_LOGIN")
@@ -10,6 +13,7 @@ if db and db.observations and db.observations.reporterId == "vic-000000000000000
         C_Timer.After(0.5, function()
             local vic: any = _G["VendorItemCheck"]
             vic:OpenBrowser()
+            if personalReplay then return end
             local panel = vic.browserPanel
             panel.vendorsTab:Click()
             panel.search:SetText("Edna Mullby")

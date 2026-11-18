@@ -121,6 +121,24 @@ The account replay uses anonymized saved observations and an item catalog in
 capture date. The fixture exercises the browser and quote privacy using historical
 observations. Keep private SavedVariables and account files outside the tracked fixture.
 
+Select **WoWLua: My SavedVariables** to open the browser on login with a local
+Forever account snapshot. With `python3` and Lua 5.2 or newer available on `PATH`,
+VS Code reimports `NTHEOTHER/SavedVariables/VendorItemCheck.lua` on each launch.
+To use another copy or the game's file, set `VIC_SAVED_VARIABLES` to the path to
+`VendorItemCheck.lua` before opening VS Code. WoW writes SavedVariables when you
+log out or run `/reload`. You can also generate the profile from a terminal:
+
+```sh
+python3 scripts/import_wowlua_savedvars.py /path/to/VendorItemCheck.lua
+```
+
+The importer reads `VendorItemCheckDB` and writes the ignored
+`tests/profiles/account-local.json`. Debugger changes live in the emulator for
+that session. The replay uses the most recently observed character's GUID for
+personal quotes and the latest observation as its replay time. Set
+`VIC_REPLAY_CHARACTER` before opening VS Code (or pass `--character` for a manual
+import) to replay another saved character's quotes.
+
 Use `python3 tests/run_wowlua.py --wow PATH_TO_WORLD_OF_WARCRAFT` to supply an
 installation path on the command line. Add `--screenshots .cache/wowlua-review` to
 render the synthetic merchant window, browser states and expanded tooltip. Add

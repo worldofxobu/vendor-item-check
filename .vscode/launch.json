@@ -9,6 +9,15 @@
       "flavor": "camelot"
     },
     {
+      "name": "WoWLua: My SavedVariables",
+      "type": "wowlua",
+      "request": "launch",
+      "addon": true,
+      "flavor": "camelot",
+      "profile": "account-local",
+      "preLaunchTask": "Prepare WoWLua SavedVariables"
+    },
+    {
       "name": "WoWLua: Forever Account Replay",
       "type": "wowlua",
       "request": "launch",

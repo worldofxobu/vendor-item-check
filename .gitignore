@@ -2,6 +2,8 @@
 /NTHEOTHER/
 .cache/
 /.wowlua-compact-*.json
+/tests/profiles/account-local.json
+/tests/profiles/.account-local-*.tmp
 scripts/.cache/
 *.zip
 .DS_Store

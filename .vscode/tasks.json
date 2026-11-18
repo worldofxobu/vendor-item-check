@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Prepare WoWLua SavedVariables",
+      "type": "process",
+      "command": "python3",
+      "args": ["${workspaceFolder}/scripts/import_wowlua_savedvars.py"],
+      "problemMatcher": []
+    }
+  ]
+}
