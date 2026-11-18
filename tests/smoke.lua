@@ -112,6 +112,8 @@ function CreateFrame(frameType, name, parent, template)
         function fs:SetSize() end
         function fs:SetWidth() end
         function fs:SetJustifyH() end
+        function fs:SetMaxLines(count) self.maxLines = count end
+        function fs:SetWordWrap(enabled) self.wordWrap = enabled end
         return fs
     end
     function f:AddLine(text, r, g, b)

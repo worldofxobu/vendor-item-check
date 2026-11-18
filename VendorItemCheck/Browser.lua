@@ -173,6 +173,11 @@ local function Label(parent, text, x, y, width)
     return label
 end
 
+local function SingleLine(label)
+    if label.SetMaxLines then label:SetMaxLines(1) end
+    if label.SetWordWrap then label:SetWordWrap(false) end
+end
+
 function VIC:CreateBrowserButton(parent, text, x, y, width, action)
     local button = CreateFrame("Button", nil, parent)
     self:StyleBrowserSurface(button)
@@ -277,18 +282,18 @@ function VIC:RefreshBrowser(rebuild)
         else panel.itemIcon:Hide() end
     end
     if selected then
-        panel.heading:SetText(selected.name .. (panel.tab == "vendors" and " - Known items" or " - Known sellers"))
+        panel.heading:SetText(selected.name)
         if panel.tab == "vendors" then
             details = selected.items
             panel.destination = selected.vendor
-            panel.description:SetText(self:BrowserOfferSummary(selected.vendor))
+            panel.description:SetText((selected.vendor.zone or "Location unknown") .. " · " .. #details .. " known items")
         else
             for _, vendor in ipairs(selected.vendors) do
                 details[#details + 1] = { id = vendor.id, name = vendor.name, vendor = vendor,
                     price = (self.client == "classic" and self.Items[selected.id] and self.Items[selected.id].p) or nil }
             end
             if not self.settings.showClosestFirst then SortRows(details) end
-            panel.description:SetText("Select a seller to browse its known inventory and track its location.")
+            panel.description:SetText(#details .. " known sellers")
         end
     else
         panel.heading:SetText(expired and "Record no longer available" or #rows == 0
@@ -316,6 +321,7 @@ function VIC:RefreshBrowser(rebuild)
     end
     local inventory = panel.tab == "vendors"
     local maxDetail = inventory and math.max(1, math.ceil(#filtered / 8)) or math.max(1, #filtered - 3)
+    panel.detailMax = maxDetail
     panel.detailPage = math.max(1, math.min(panel.detailPage, maxDetail))
     panel.detailCount:SetText(inventory and ("Page " .. panel.detailPage .. " of " .. maxDetail)
         or string.format("%d sellers", #filtered))
@@ -337,8 +343,10 @@ function VIC:RefreshBrowser(rebuild)
                 if color and color.hex then caption = color.hex .. caption .. "|r" end
             end
             local summary = self:BrowserOfferSummary(row.vendor, row.price)
-            if inventory then summary = summary:match("\n(.*)") or summary end
-            button.caption:SetText(caption .. "\n" .. summary)
+            local location, offer = summary:match("^(.-)\n(.*)$")
+            button.caption:SetText(caption)
+            button.location:SetText(inventory and "" or (location or ""))
+            button.offer:SetText(offer or summary)
             if button.icon then
                 if inventory then
                     local api = C_Item and C_Item.GetItemIconByID or GetItemIcon
@@ -369,6 +377,8 @@ function VIC:RefreshBrowser(rebuild)
         else
             if button.icon then button.icon:Hide() end
             button.caption:SetText("")
+            button.location:SetText("")
+            button.offer:SetText("")
             if inventory and selected then button:Show() else button:Hide() end
             button.track:Hide()
             button.info:Hide()
@@ -396,11 +406,15 @@ function VIC:RefreshBrowser(rebuild)
     end
     panel.clearFilters:SetEnabled(next(panel.filters) ~= nil)
     if selected then panel.detailSearch:Show() else panel.detailSearch:Hide() end
+    panel.expandedSummary:Hide()
     if panel.expanded then
         local expanded
         for _, row in ipairs(filtered) do if row.id == panel.expanded.id then expanded = row; break end end
         panel.expanded = expanded
-        if expanded then panel.description:SetText(self:BrowserOfferText(expanded.vendor, expanded.price)) end
+        if expanded then
+            panel.expandedSummary:SetText(self:BrowserOfferText(expanded.vendor, expanded.price))
+            panel.expandedSummary:Show()
+        end
     end
     if panel.back then panel.back:SetEnabled(#panel.history > 0 or (panel.compact and panel.selected ~= nil)) end
     panel.allZones:Hide()
@@ -421,7 +435,7 @@ function VIC:RefreshBrowser(rebuild)
     local waypointAvailable = self:CanMapVendor(panel.destination) or self:OwnsVendorWaypoint(panel.destination)
     panel.track:SetEnabled(waypointAvailable)
     if inventory and selected and not waypointAvailable then
-        panel.description:SetText(panel.description:GetText() .. (panel.destination.locationExpired and "\nLocation expired — waypoint unavailable." or "\nWaypoint unavailable for this location."))
+        panel.description:SetText(panel.destination.locationExpired and "Location expired · waypoint unavailable" or (panel.destination.zone or "Location unknown") .. " · waypoint unavailable")
     end
 end
 
@@ -539,6 +553,11 @@ function VIC:OpenBrowser()
         end)
         panel.heading = Label(panel, "", 365, -76, 510)
         panel.description = Label(panel, "", 365, -99, 510)
+        SingleLine(panel.heading)
+        if panel.description.SetMaxLines then panel.description:SetMaxLines(2) end
+        panel.expandedSummary = Label(panel, "", 200, -391, 350)
+        if panel.expandedSummary.SetMaxLines then panel.expandedSummary:SetMaxLines(2) end
+        panel.expandedSummary:Hide()
         if panel.CreateTexture then
             panel.itemIcon = panel:CreateTexture(nil, "ARTWORK")
             panel.itemIcon:SetSize(35, 35)
@@ -612,6 +631,8 @@ function VIC:OpenBrowser()
             end
             button.nameLabel = Label(button, "", 38, -5, 125)
             button.subtitle = Label(button, "", 38, -19, 125)
+            SingleLine(button.nameLabel)
+            SingleLine(button.subtitle)
             if button.subtitle.SetTextColor then button.subtitle:SetTextColor(unpack(colors.muted)) end
             panel.list[i] = button
         end
@@ -621,6 +642,12 @@ function VIC:OpenBrowser()
             if button.SetHighlightTexture then button:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD") end
             self:StyleBrowserSurface(button)
             button.caption = Label(button, "", 0, 0, 355)
+            button.location = Label(button, "", 0, 0, 355)
+            button.offer = Label(button, "", 0, 0, 355)
+            SingleLine(button.caption)
+            SingleLine(button.location)
+            SingleLine(button.offer)
+            if button.location.SetTextColor then button.location:SetTextColor(unpack(colors.muted)) end
             if button.CreateTexture then
                 button.icon = button:CreateTexture(nil, "ARTWORK")
                 button.icon:SetSize(32, 32)
@@ -669,9 +696,16 @@ function VIC:OpenBrowser()
         for _, row in ipairs(panel.details) do Wheel(row, true) end
         -- Native sliders offer dragging as well as wheel navigation.
         local function Scrollbar(detail)
-            local bar = CreateFrame("Slider", nil, panel, "UIPanelScrollBarTemplate")
+            local bar = CreateFrame("Slider", nil, panel)
             bar:SetPoint("TOPLEFT", detail and 875 or 342, -190)
-            bar:SetSize(16, 325)
+            bar:SetSize(6, 325)
+            if bar.SetOrientation then bar:SetOrientation("VERTICAL") end
+            if bar.SetThumbTexture and bar.CreateTexture then
+                local thumb = bar:CreateTexture(nil, "ARTWORK")
+                thumb:SetColorTexture(colors.brass[1], colors.brass[2], colors.brass[3], 1)
+                thumb:SetSize(6, 18)
+                bar:SetThumbTexture(thumb)
+            end
             if bar.SetMinMaxValues then
                 bar:SetMinMaxValues(1, 1); bar:SetValueStep(1)
                 bar:SetScript("OnValueChanged", function(_, value)
@@ -702,9 +736,9 @@ function VIC:OpenBrowser()
             self:SetSize(570, 420)
             if self.SetScale then self:SetScale(math.max(0.1, math.min(1, (width - 12) / 570, (height - 12) / 420))) end
             Move(self.back, 485, -37, 75)
-            Move(self.data, 455, -7, 53)
-            Move(self.settingsButton, 513, -7, 24)
-            self.settingsButton:SetText("⚙")
+            Move(self.settingsButton, 497, -7, 42)
+            Move(self.data, 439, -7, 53)
+            self.settingsButton:SetText("Setup")
             Move(self.zone, 283, -71, 92)
             Move(self.faction, 378, -71, 100)
             Move(self.source, 480, -71, 80)
@@ -761,20 +795,25 @@ function VIC:OpenBrowser()
                 local slotWidth = inventory and math.floor(paneWidth / 2) - 5 or paneWidth - 8
                 Move(row, left + column * (slotWidth + 5), y, slotWidth)
                 row:SetSize(slotWidth, 46)
-                Move(row.caption, inventory and 42 or 6, -8, inventory and slotWidth - 44 or slotWidth - 133)
-                Move(row.track, 422, y - 3, 67)
-                Move(row.info, 491, y - 3, 65)
+                local textLeft = inventory and 42 or 7
+                local textWidth = inventory and slotWidth - 48 or slotWidth - 150
+                Move(row.caption, textLeft, inventory and -8 or -5, textWidth)
+                Move(row.location, textLeft, -18, textWidth)
+                Move(row.offer, textLeft, inventory and -24 or -31, slotWidth - textLeft - 6)
+                Move(row.track, 416, y - 7, 67)
+                Move(row.info, 487, y - 7, 59)
             end
-            Move(self.resultsScroll, self.compact and 550 or 180, -130)
-            self.resultsScroll:SetSize(16, 238)
-            Visible(self.resultsScroll, not self.compact or not detail)
+            Move(self.resultsScroll, self.compact and 550 or 182, -135)
+            self.resultsScroll:SetSize(6, 250)
+            Visible(self.resultsScroll, self.rows and #self.rows > 7 and (not self.compact or not detail))
             Visible(self.count, self.rows and #self.rows > 0 and (not self.compact or not detail))
-            Move(self.detailsScroll, 555, -188)
-            self.detailsScroll:SetSize(16, 170)
-            Visible(self.detailsScroll, detail and not inventory)
+            Move(self.detailsScroll, 556, -188)
+            self.detailsScroll:SetSize(6, 190)
+            Visible(self.detailsScroll, detail and not inventory and (self.detailMax or 1) > 1)
+            Move(self.expandedSummary, left + 7, -390, paneWidth - 14)
             Visible(self.heading, detail or not self.compact or not self.rows or #self.rows == 0)
             Visible(self.description, detail or not self.compact or not self.rows or #self.rows == 0)
-            Visible(self.detailCount, detail)
+            Visible(self.detailCount, detail and not self.expanded)
             self.detailLabel:Hide()
         end
         panel:SetScript("OnShow", function() panel:Layout(); self:RefreshBrowser(true) end)
