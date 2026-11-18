@@ -7,15 +7,78 @@ VIC.Datasets.forever = { metadata = {
     ["build"] = "Unrecorded by source (live post-launch observations)",
     ["client"] = "Forever",
     ["credit"] = "Data from Everloot (https://everloot.app), CC BY-SA 4.0.",
-    ["dataAsOf"] = "2026-11-05T03:10:11.401Z",
+    ["dataAsOf"] = "2026-11-09T08:20:14.478Z",
     ["licence"] = "CC BY-SA 4.0",
     ["maxAgeDays"] = 30,
     ["minimumReporters"] = 3,
-    ["snapshotSHA256"] = "e6b662b765f00e9d1b8add8a5936820abed4cca62c043f701d5d40dc2a4327d5",
+    ["snapshotSHA256"] = "7de6da6b1f0952b28acbdd006a25e3cf43a3e6b1256e1ae7e969b7aa6ff2691e",
     ["source"] = "Everloot",
     ["sourceURL"] = "https://everloot.app",
 }, vendors = {
-
+    [3934] = {
+    [1] = "Innkeeper Boorand Plainswind",
+    [2] = "Location unknown",
+    [3] = "?",
+    [4] = 52,
+    [5] = 30,
+    ["approximate"] = true,
+    ["locationExpires"] = 1796542488,
+    ["mapID"] = 1413,
+    ["nameExpires"] = 1796542488,
+},
+    [4554] = {
+    [1] = "Tawny Grisette",
+    [2] = "Location unknown",
+    [3] = "?",
+    [4] = 0,
+    [5] = 0,
+    ["nameExpires"] = 1796710583,
+},
 }, items = {
-
+    [159] = {
+    ["offers"] = {
+    [3934] = {
+    ["expires"] = 1796667174,
+    ["lastSeen"] = "2026-11-08T23:27:16Z",
+    ["lastSeenEpoch"] = 1794180436,
+    ["observedCopper"] = 23,
+    ["priceContext"] = "unknown",
+    ["priceReporters"] = 3,
+    ["reporters"] = 3,
+},
+    [4554] = {
+    ["expires"] = 1796638632,
+    ["lastSeen"] = "2026-11-09T08:09:52Z",
+    ["lastSeenEpoch"] = 1794211792,
+    ["observedCopper"] = 25,
+    ["priceContext"] = "unknown",
+    ["priceReporters"] = 3,
+    ["reporters"] = 3,
+},
+},
+    ["v"] = { 3934, 4554 },
+},
+    [1179] = {
+    ["offers"] = {
+    [3934] = {
+    ["expires"] = 1796667174,
+    ["lastSeen"] = "2026-11-08T23:27:16Z",
+    ["lastSeenEpoch"] = 1794180436,
+    ["observedCopper"] = 113,
+    ["priceContext"] = "unknown",
+    ["priceReporters"] = 3,
+    ["reporters"] = 3,
+},
+    [4554] = {
+    ["expires"] = 1796638632,
+    ["lastSeen"] = "2026-11-09T08:09:52Z",
+    ["lastSeenEpoch"] = 1794211792,
+    ["observedCopper"] = 125,
+    ["priceContext"] = "unknown",
+    ["priceReporters"] = 3,
+    ["reporters"] = 3,
+},
+},
+    ["v"] = { 3934, 4554 },
+},
 } }
