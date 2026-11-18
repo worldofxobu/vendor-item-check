@@ -1,4 +1,4 @@
-"""Run WoWLua browser tests from a temporary addon project."""
+"""Run WoWLua UI tests and capture browser screenshots from the repository root."""
 
 import argparse
 import json
@@ -40,23 +40,23 @@ def main():
     if args.wow:
         env["WOWLUA_WOW_PATH"] = str(args.wow.resolve())
 
-    with tempfile.TemporaryDirectory(prefix="vic-wowlua-") as temp_dir:
-        project = Path(temp_dir) / "VendorItemCheck"
-        shutil.copytree(ROOT / "VendorItemCheck", project)
+    manifest_args = []
+    compact_manifest = None
+    try:
+        if args.compact:
+            manifest = json.loads((ROOT / "wowlua.json").read_text(encoding="utf-8"))
+            manifest["build"]["out"] = ".cache/wowlua/compact"
+            manifest["test"]["screen"] = {"width": 480, "height": 800, "uiScale": 1.15}
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=ROOT,
+                prefix=".wowlua-compact-", suffix=".json", delete=False,
+            ) as config:
+                compact_manifest = Path(config.name)
+                json.dump(manifest, config)
+            manifest_args = ["--manifest", str(compact_manifest)]
 
         def run(*options):
-            subprocess.run([wowlua, *options], cwd=project, env=env, check=True)
-
-        run("init", "--from-toc", "VendorItemCheck.toc", "--no-pkgmeta", "--offline")
-        manifest_path = project / "wowlua.json"
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        manifest["test"] = {"blizzard-ui": True}
-        if args.compact:
-            manifest["test"]["screen"] = {"width": 480, "height": 800, "uiScale": 1.15}
-        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-        test_path = project / "tests" / TEST_FILE
-        test_path.parent.mkdir()
-        shutil.copy2(ROOT / "tests" / TEST_FILE, test_path)
+            subprocess.run([wowlua, *manifest_args, *options], cwd=ROOT, env=env, check=True)
 
         if args.screenshots:
             output = args.screenshots.resolve()
@@ -64,11 +64,14 @@ def main():
             for name, (test, frame) in SCREENSHOTS.items():
                 if args.filter and args.filter not in test:
                     continue
-                run("screenshot", str(test_path.relative_to(project)), "--flavor", "camelot", "--locked",
+                run("screenshot", f"tests/{TEST_FILE}", "--flavor", "camelot", "--locked",
                     "--test", test, "--frame", frame, "--output", str(output / (name + ".png")))
         else:
             filters = [args.filter] if args.filter else []
             run("test", "--flavor", "camelot", "--locked", *filters)
+    finally:
+        if compact_manifest:
+            compact_manifest.unlink()
 
 
 if __name__ == "__main__":

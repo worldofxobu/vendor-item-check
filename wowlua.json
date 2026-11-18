@@ -1,0 +1,44 @@
+{
+  "$schema": "https://raw.githubusercontent.com/DomenikIrrgang/wowlua/v0.13.15/schema/wowlua-0.1.json",
+  "package": {
+    "name": "vendor-item-check",
+    "version": "0.1.0",
+    "authors": ["Xobu"],
+    "wowlua": "=0.13.15"
+  },
+  "addon": {
+    "name": "VendorItemCheck",
+    "title": "Vendor Item Check",
+    "notes": "Shows if an item can be bought at a vendor, with expandable vendor locations on Alt.",
+    "saved-variables": ["VendorItemCheckDB"]
+  },
+  "flavors": {
+    "camelot": { "interface": [16001] },
+    "vanilla": { "interface": [11509, 11508, 11507, 11506, 11505, 11504, 11503, 11502, 11501, 11500] }
+  },
+  "addon-dependencies": {
+    "optional": ["Informant"]
+  },
+  "build": {
+    "src": "VendorItemCheck",
+    "out": ".cache/wowlua",
+    "assets": ["VendorItemCheck/DATA_LICENSE.md"],
+    "load-order": [
+      "VendorItemCheck/Data.lua",
+      "VendorItemCheck/DataForever.lua",
+      "VendorItemCheck/Core.lua",
+      "VendorItemCheck/Merchant.lua",
+      "VendorItemCheck/Export.lua",
+      "VendorItemCheck/Tooltip.lua",
+      "VendorItemCheck/Tracking.lua",
+      "VendorItemCheck/Browser.lua",
+      "VendorItemCheck/Options.lua"
+    ],
+    "flavor-files": {
+      "tests/**/*.wowlua": ["camelot"]
+    }
+  },
+  "test": {
+    "blizzard-ui": true
+  }
+}

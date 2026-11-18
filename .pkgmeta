@@ -7,12 +7,15 @@ move-folders:
 
 ignore:
     - .github
+    - .vscode
     - docs
     - tests
     - scripts
     - README.md
     - CONTRIBUTING.md
     - AGENTS.md
+    - wowlua.json
+    - wowlua.lock
 
 manual-changelog:
     filename: CHANGELOG.md

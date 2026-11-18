@@ -1,6 +1,7 @@
 # Vendor Item Check gitignore
 /NTHEOTHER/
 .cache/
+/.wowlua-compact-*.json
 scripts/.cache/
 *.zip
 .DS_Store

@@ -90,14 +90,37 @@ name loading, expiry, quote privacy and waypoint ownership checks. In each suppo
 client, also inspect layout at common UI scales, long/localized names, item hover,
 search/paging, live merchant refresh, and map/coordinate fallback behavior. Verify closing the browser, replacing destinations, and preserving user waypoints.
 
-Run `python3 tests/run_wowlua.py --wow PATH_TO_WORLD_OF_WARCRAFT` with
-WoWLua 0.13 and a Forever installation to emulate merchant visits with Blizzard's
-UI. The runner builds a temporary project from the existing TOCs. It exercises
-merchant recording, browser filters, sorting, paging, navigation, tooltip refresh
-and browser text layout. Use `--screenshots .cache/wowlua-review` to render the
-merchant window, browser states and expanded tooltip. Add `--compact` to test the
-narrow browser layout and tooltip width. WoWLua may need network access to
-initialize its Blizzard UI cache on a first run.
+### WoWLua UI tests and debugging
+
+Install [WoWLua 0.13.15](https://wowlua.dev/docs/guide/install), add `wowlua` to
+`PATH`, and run these commands from the repository root:
+
+```sh
+wowlua check --locked
+wowlua test --locked
+wowlua build --locked
+```
+
+The root `wowlua.json` reads the current files in `VendorItemCheck/` and writes
+development builds under `.cache/wowlua/`. Keep its load order, interface numbers,
+dependencies, and addon metadata in sync with the production TOCs. WoWLua checks and builds
+Forever and Classic Era. The UI tests run on Forever with Blizzard's UI. WoWLua may
+need network access to initialize its Blizzard UI cache. Set `WOWLUA_HOME` to its data
+directory if it cannot find the cache, and set `WOWLUA_WOW_PATH` if it cannot find your
+World of Warcraft installation. A local Forever installation provides textures and fonts
+for screenshots and the debugger UI.
+
+Open the repository root in VS Code with the `wowlua.wowlua` extension installed.
+Start **WoWLua: Run Addon** and open **wowlua: UI** from the Command Palette.
+Restart the debug session after saving source edits to rebuild the addon.
+
+Use `python3 tests/run_wowlua.py --wow PATH_TO_WORLD_OF_WARCRAFT` to supply an
+installation path on the command line. Add `--screenshots .cache/wowlua-review` to
+render the synthetic merchant window, browser states and expanded tooltip. Add
+`--compact` to exercise the synthetic UI at 480×800.
+
+Use the BigWigs packager for release ZIPs. The WoWLua manifest, lockfile, editor
+configuration, and UI tests are development files excluded from release ZIPs.
 
 ## Vendor data pipeline
 
