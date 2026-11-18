@@ -1,4 +1,5 @@
 # Vendor Item Check gitignore
+/NTHEOTHER/
 .cache/
 scripts/.cache/
 *.zip
