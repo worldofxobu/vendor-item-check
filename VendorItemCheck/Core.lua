@@ -150,7 +150,7 @@ function VIC:GetItemVendors(itemID, filters)
         end
         if rawVendor then
             totalVendors = totalVendors + 1
-            local vFac = rawVendor[3] or "N"
+            local vFac = rawVendor[3] or (self.client == "forever" and "?" or "N")
             if filters.allFactions or self:IsVendorFriendly(vFac, playerFaction) then
                 local locationValid = self.client ~= "forever" or
                     (rawVendor.locationExpires and (not time or time() <= rawVendor.locationExpires))
@@ -190,6 +190,7 @@ function VIC:GetItemVendors(itemID, filters)
         -- Forever's current source omits quantities, currencies and discounts.
         price = self.client == "classic" and itemData.p or nil,
         enemyOnly = isEnemyOnly,
+        hiddenCount = enemyVendorsCount,
         enemyFaction = playerFaction and ((playerFaction == "Alliance") and "Horde" or "Alliance") or nil,
     }
     if self.client == "forever" and filters.source ~= "bundled" and self.MergePersonalVendors then
@@ -207,20 +208,25 @@ function VIC:SortVendorsByProximity(vendors, playerZone, playerX, playerY)
     local normPlayerZone = NormalizeZone(playerZone)
     local hasPlayerCoords = (playerX ~= nil and playerY ~= nil and playerX > 0 and playerY > 0)
 
+    local playerMap
+    if C_Map and type(C_Map.GetBestMapForUnit) == "function" then
+        local ok, map = pcall(C_Map.GetBestMapForUnit, "player")
+        if ok then playerMap = map end
+    end
     for _, v in ipairs(vendors) do
         local normVZone = NormalizeZone(v.zone)
         local isSameZone = (normPlayerZone ~= "" and normPlayerZone == normVZone)
 
-        if v.mapID and C_Map and C_Map.GetBestMapForUnit then
-            isSameZone = C_Map.GetBestMapForUnit("player") == v.mapID
+        if v.mapID and playerMap then
+            isSameZone = playerMap == v.mapID
         end
         if isSameZone then
-            if hasPlayerCoords and v.x > 0 and v.y > 0 then
+            if hasPlayerCoords and playerMap and v.mapID == playerMap and v.x > 0 and v.y > 0 then
                 local dx = v.x - playerX
                 local dy = v.y - playerY
                 v._sortDist = math.sqrt(dx * dx + dy * dy)
             else
-                v._sortDist = 0.001
+                v._sortDist = 999
             end
         else
             v._sortDist = 1000.0
@@ -234,7 +240,8 @@ function VIC:SortVendorsByProximity(vendors, playerZone, playerX, playerY)
         if a.zone ~= b.zone then
             return a.zone < b.zone
         end
-        return a.name < b.name
+        if a.name ~= b.name then return a.name < b.name end
+        return a.id < b.id
     end)
 
     return vendors
@@ -266,24 +273,27 @@ function VIC:FormatMoney(copper)
 end
 
 function VIC:CountIndexedItems()
-    local itemCount = 0
-    if self.Items then
-        for _ in pairs(self.Items) do
+    local itemCount, vendorCount = 0, 0
+    local vendors = {}
+    for id in pairs(self.Items or {}) do
+        local info = self:GetItemVendors(id, { source = "bundled", allFactions = true })
+        if info and #info.vendors > 0 then
             itemCount = itemCount + 1
+            for _, vendor in ipairs(info.vendors) do vendors[vendor.id] = true end
         end
     end
-    local vendorCount = 0
-    if self.Vendors then
-        for _ in pairs(self.Vendors) do
-            vendorCount = vendorCount + 1
-        end
-    end
+    for _ in pairs(vendors) do vendorCount = vendorCount + 1 end
     return itemCount, vendorCount
 end
 
 function VIC:InitializeDB()
     if not VendorItemCheckDB or type(VendorItemCheckDB) ~= "table" then
         VendorItemCheckDB = {}
+    end
+
+    if not VendorItemCheckDB.independentLearning then
+        if VendorItemCheckDB.enabled == false then VendorItemCheckDB.recordMerchants = false end
+        VendorItemCheckDB.independentLearning = true
     end
 
     for key, defaultValue in pairs(self.defaults) do
@@ -325,7 +335,7 @@ end)
 
 -- A small native-button menu shared by both supported clients. Entries are
 -- explicit choices; bounded rows and wheel/buttons keep long zone lists usable.
-function VIC:OpenChoiceMenu(owner, choices, choose)
+function VIC:OpenChoiceMenu(owner, choices, choose, searchable)
     if self.choiceMenu then self.choiceMenu:Hide() end
     local menu = self.choiceMenu or CreateFrame("Frame", nil, owner, "BasicFrameTemplateWithInset")
     if menu.SetParent then menu:SetParent(owner) end
@@ -336,15 +346,28 @@ function VIC:OpenChoiceMenu(owner, choices, choose)
     if menu.SetFrameStrata then menu:SetFrameStrata("DIALOG") end
     if menu.SetClampedToScreen then menu:SetClampedToScreen(true) end
     local offset, rows = 0, menu.rows or {}
+    if searchable and not menu.search then
+        local search = CreateFrame("EditBox", nil, menu, "InputBoxTemplate")
+        search:SetPoint("TOPLEFT", 16, -5)
+        search:SetSize(255, 20)
+        if search.SetAutoFocus then search:SetAutoFocus(false) end
+        menu.search = search
+    end
+    if menu.search then
+        menu.search:SetScript("OnTextChanged", nil)
+        menu.search:SetText("")
+        if searchable then menu.search:Show() else menu.search:Hide() end
+    end
+    local visible = choices
     local function Refresh()
         for i, row in ipairs(rows) do
-            local entry = choices[offset + i]
+            local entry = visible[offset + i]
             row.entry = entry
             if entry then row:SetText(entry.label); row:Show() else row:Hide() end
         end
     end
     local function Scroll(delta)
-        offset = math.max(0, math.min(math.max(0, #choices - 8), offset + delta))
+        offset = math.max(0, math.min(math.max(0, #visible - 8), offset + delta))
         Refresh()
     end
     for i = 1, 8 do
@@ -368,6 +391,16 @@ function VIC:OpenChoiceMenu(owner, choices, choose)
     if menu.EnableMouseWheel then
         menu:EnableMouseWheel(true)
         menu:SetScript("OnMouseWheel", function(_, delta) Scroll(-delta) end)
+    end
+    if searchable then
+        menu.search:SetScript("OnTextChanged", function(box)
+            visible, offset = {}, 0
+            local query = string.lower(box:GetText() or "")
+            for _, entry in ipairs(choices) do
+                if string.find(string.lower(entry.label), query, 1, true) then visible[#visible + 1] = entry end
+            end
+            Refresh()
+        end)
     end
     Refresh()
     menu:Show()

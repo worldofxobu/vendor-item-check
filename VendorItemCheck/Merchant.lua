@@ -101,7 +101,7 @@ local function CostInfo(index, extended)
 end
 
 function VIC:ScanMerchant()
-    if self.client ~= "forever" or not self.observations or not self.settings.enabled or
+    if self.client ~= "forever" or not self.observations or
         not self.settings.recordMerchants or not self.merchantGUID then return end
     local guid, vendorId = MerchantIdentity()
     if guid ~= self.merchantGUID then return end
@@ -244,6 +244,9 @@ function VIC:MergePersonalVendors(itemID, info)
                     personal = true, source = "personal", observedAt = chosen.observedAt, stock = chosen.stock,
                     locationExpires = chosen.observedAt + 30 * 86400,
                     accessObserved = sameCharacter and chosen.canPurchase == true,
+                    quantity = chosen.quantity,
+                    copper = sameCharacter and chosen.canPurchase == true and chosen.hasExtendedCost == false and chosen.priceCopper or nil,
+                    discount = sameCharacter and chosen.discount or nil,
                     quoteText = sameCharacter and self:PersonalQuote(chosen) or nil,
                     alternateCost = sameCharacter and chosen.hasExtendedCost == true,
                 }
@@ -265,16 +268,21 @@ end
 
 function VIC:CountPersonalItems()
     local items, vendors = {}, {}
+    local offers, latest = 0, nil
     local now = self:ObservationNow()
     for itemID, entries in pairs(self.personalIndex or {}) do
         for vendorID, characters in pairs(entries) do
             for _, record in pairs(characters) do
-                if self:IsObservationFresh(record, now) then items[itemID] = true; vendors[vendorID] = true end
+                if self:IsObservationFresh(record, now) then
+                    items[itemID], vendors[vendorID] = true, true
+                    offers = offers + 1
+                    latest = math.max(latest or 0, record.observedAt)
+                end
             end
         end
     end
     local itemCount, vendorCount = 0, 0
     for _ in pairs(items) do itemCount = itemCount + 1 end
     for _ in pairs(vendors) do vendorCount = vendorCount + 1 end
-    return itemCount, vendorCount
+    return itemCount, vendorCount, offers, latest
 end
