@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Data & Sharing with current coverage, client status, and explicit generation and selection of contribution JSON.
 - Updated the browser with a charcoal-and-brass layout, inset results, paged merchant inventory, stock filters, searchable zones, and native waypoint controls.
 - Fixed overlapping browser labels and seller offers at in-game UI scales and hid scrollbars for short lists.
+- Rebuilt the AddOns settings page with separate control groups, a framed live preview, and a stacked layout for narrow panels.
 - Simplified tooltip details and made tooltip enhancement independent of merchant learning.
 
 

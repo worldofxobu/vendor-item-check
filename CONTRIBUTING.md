@@ -341,7 +341,7 @@ Browser navigation stores session-only snapshots of searches, filters, selection
 and list offsets. Exercise explicit menu choices, Back after cross-links, tab
 restoration, wheel/slider bounds, direct seller tracking, and record expiry.
 Check compact results/detail navigation and viewport fitting on both clients.
-Settings reset must require a choice and preserve observations. Preview content is
+Check the native AddOns settings panel at wide and narrow viewport widths. Keep the preview and footer clear of all input controls and check that the narrow layout scrolls. Settings reset must require a choice and preserve observations. Preview content is
 labelled example data; it must never enter the vendor index. Price qualification
 and unknown access remain visible in summary rows. Inspect long names, row actions,
 icons, and the embedded contribution view in-game at common UI scales.

@@ -24,8 +24,12 @@ C_GamePad = {
 
 local originalCreate = CreateFrame
 local named, created = {}, {}
-CreateFrame = function(frameType, name, ...)
-    local frame = originalCreate(frameType, name, ...)
+CreateFrame = function(frameType, name, parent, ...)
+    local frame = originalCreate(frameType, name, parent, ...)
+    frame.parent = parent
+    function frame:SetPoint(_, x, y) self.x, self.y = x, y end
+    function frame:SetSize(width, height) self.width, self.height = width, height end
+    function frame:GetWidth() return self.width or 0 end
     created[#created + 1] = frame
     if name then named[name] = frame end
     frame.EnableGamePadButton, frame.EnableKeyboard, frame.SetPropagateKeyboardInput = Forbidden, Forbidden, Forbidden
@@ -56,6 +60,27 @@ end
 VIC:TooltipInitialize()
 VIC:OptionsInitialize()
 assert(reads == 0 and not VIC.tooltipWatcher:GetScript("OnUpdate"), "No input polling without an item tooltip")
+-- The live report exposed a keyboard selector overlapping the preview buttons.
+local settingsScroll, collapsed
+for _, frame in ipairs(created) do
+    if frame.parent == VIC.optionsPanel and frame.child then settingsScroll = frame end
+    if frame.text == "Collapsed" then collapsed = frame end
+end
+local keyboard = named.VICKeyboardModifier
+local function CheckOptionsLayout(width, stacked)
+    settingsScroll.width = width
+    settingsScroll.scripts.OnSizeChanged()
+    local preview, form = collapsed.parent, keyboard.parent
+    if stacked then
+        assert(preview.y <= form.y - form.height, "Narrow previews stack below the complete settings form")
+    else
+        assert(preview.x >= form.x + form.width, "The selector and preview occupy separate columns")
+    end
+    assert(keyboard.x + keyboard.width <= form.width)
+    assert(-preview.y - collapsed.y + collapsed.height <= settingsScroll.child.height)
+end
+CheckOptionsLayout(634, false)
+CheckOptionsLayout(440, true)
 local function Tick()
     local update = VIC.tooltipWatcher:GetScript("OnUpdate")
     if update then update(VIC.tooltipWatcher, 0.05) end

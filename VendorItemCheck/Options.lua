@@ -4,103 +4,103 @@ local controls = {}
 local KEYBOARD_LABELS = { ALT = "Hold ALT", SHIFT = "Hold SHIFT", CTRL = "Hold CTRL", OFF = "Keyboard off", NONE = "Always expanded" }
 local CONTROLLER_LABELS = { LT = "Hold LT / L2", RT = "Hold RT / R2", LB = "Hold LB / L1", RB = "Hold RB / R1", OFF = "Controller off" }
 
-local function SetCheckboxText(checkbox, text)
-    if checkbox.Text then
-        checkbox.Text:SetText(text)
-    else
-        local label = _G[checkbox:GetName() .. "Text"]
-        if label then
-            label:SetText(text)
-        end
-    end
+local function Text(parent, value, x, y, width, font)
+    local text = parent:CreateFontString(nil, "ARTWORK", font or "GameFontHighlightSmall")
+    text:SetPoint("TOPLEFT", x, y)
+    text:SetWidth(width)
+    text:SetJustifyH("LEFT")
+    text:SetText(value)
+    return text
 end
 
-local function CreateCheckbox(panel, key, label, description, anchor)
-    local name = "VICOption" .. key
-    local checkbox = CreateFrame("CheckButton", name, panel, "InterfaceOptionsCheckButtonTemplate")
-    checkbox:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -10)
-    SetCheckboxText(checkbox, label)
-    checkbox.tooltipText = label
-    checkbox.tooltipRequirement = description
-    checkbox:SetScript("OnClick", function(self)
-        VIC.settings[key] = self:GetChecked() and true or false
+local function Button(parent, name, value, x, y, width, action)
+    local template = not VIC.StyleBrowserSurface and "UIPanelButtonTemplate" or nil
+    local button = CreateFrame("Button", name, parent, template)
+    if VIC.StyleBrowserSurface then VIC:StyleBrowserSurface(button, "header") end
+    if button.SetNormalFontObject then
+        button:SetNormalFontObject(GameFontHighlightSmall)
+        button:SetHighlightFontObject(GameFontNormalSmall)
+        button:SetDisabledFontObject(GameFontDisableSmall)
+    end
+    button:SetPoint("TOPLEFT", x, y)
+    button:SetSize(width, 24)
+    button:SetText(value)
+    button:SetScript("OnClick", action)
+    return button
+end
+
+local function Help(parent, x, y, message)
+    local button = Button(parent, nil, "?", x, y, 19)
+    local function Show(owner)
+        if not GameTooltip or not GameTooltip.SetText then return end
+        GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+        GameTooltip:SetText(message, 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end
+    button:SetScript("OnEnter", Show)
+    button:SetScript("OnClick", Show)
+    button:SetScript("OnLeave", function()
+        if GameTooltip and GameTooltip.IsOwned and GameTooltip:IsOwned(button) then GameTooltip:Hide() end
+    end)
+end
+
+local function Rule(parent, y, width, gold)
+    if not parent.CreateTexture then return end
+    local line = parent:CreateTexture(nil, "ARTWORK")
+    if not line.SetColorTexture then return end
+    line:SetPoint("TOPLEFT", 0, y)
+    line:SetSize(width, 1)
+    if gold then line:SetColorTexture(0.55, 0.42, 0.22, 1)
+    else line:SetColorTexture(0.32, 0.29, 0.23, 1) end
+    return line
+end
+
+local function CreateCheckbox(parent, key, label, description, y)
+    local checkbox = CreateFrame("CheckButton", "VICOption" .. key, parent, "InterfaceOptionsCheckButtonTemplate")
+    checkbox:SetPoint("TOPLEFT", 0, y)
+    checkbox:SetSize(21, 21)
+    local nativeText = checkbox.Text or _G["VICOption" .. key .. "Text"]
+    if nativeText then nativeText:SetText("") end
+    Text(parent, label, 29, y - 5, 226)
+    Help(parent, 263, y + 1, description)
+    checkbox:SetScript("OnClick", function(control)
+        VIC.settings[key] = control:GetChecked() and true or false
         VIC:RefreshOptions()
     end)
     checkbox.settingKey = key
     controls[#controls + 1] = checkbox
-    return checkbox
 end
 
-local function CreateStepper(panel, key, label, minimum, maximum, step, anchor)
-    local row = CreateFrame("Frame", nil, panel)
-    row:SetSize(420, 28)
-    row:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -14)
-
-    local labelText = row:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    labelText:SetPoint("LEFT", 0, 0)
-    labelText:SetText(label)
-
-    local minus = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-    minus:SetSize(28, 22)
-    minus:SetPoint("LEFT", 175, 0)
-    minus:SetText("-")
-
-    local value = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    value:SetSize(40, 20)
-    value:SetPoint("LEFT", minus, "RIGHT", 4, 0)
-    value:SetJustifyH("CENTER")
-
-    local plus = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-    plus:SetSize(28, 22)
-    plus:SetPoint("LEFT", value, "RIGHT", 4, 0)
-    plus:SetText("+")
-
+local function CreateStepper(parent, y)
+    Text(parent, "Maximum vendors", 0, y - 6, 145)
+    Help(parent, 149, y, "Number of sellers shown on the expanded tooltip, from 1 to 10.")
     local function Change(delta)
-        local current = tonumber(VIC.settings[key]) or minimum
-        VIC.settings[key] = math.max(minimum, math.min(maximum, current + delta))
-        value:SetText(VIC.settings[key])
+        local current = tonumber(VIC.settings.maxVendors) or 4
+        VIC.settings.maxVendors = math.max(1, math.min(10, current + delta))
         VIC:RefreshOptions()
     end
-
-    minus:SetScript("OnClick", function() Change(-step) end)
-    plus:SetScript("OnClick", function() Change(step) end)
-
-    row.settingKey = key
-    row.valueText = value
-    controls[#controls + 1] = row
-    return row
+    Button(parent, nil, "-", 201, y, 25, function() Change(-1) end)
+    local value = Text(parent, "", 229, y - 6, 25)
+    value:SetJustifyH("CENTER")
+    Button(parent, nil, "+", 257, y, 25, function() Change(1) end)
+    controls[#controls + 1] = { settingKey = "maxVendors", valueText = value }
 end
 
-local function CreateModifierSelector(panel, anchor, key, caption, choices, labels, buttonName)
-    local row = CreateFrame("Frame", nil, panel)
-    row:SetSize(460, 28)
-    row:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -14)
-
-    local label = row:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    label:SetPoint("LEFT", 0, 0)
-    label:SetText(caption)
-
-    local btn = CreateFrame("Button", buttonName, row, "UIPanelButtonTemplate")
-    btn:SetSize(180, 22)
-    btn:SetPoint("LEFT", 240, 0)
-
-    local function UpdateButton()
-        local current = VIC.settings[key] or VIC.defaults[key]
-        btn:SetText(labels[current] or labels[VIC.defaults[key]])
-    end
-
-    btn:SetScript("OnClick", function()
+local function CreateModifierSelector(parent, y, key, caption, choices, labels, buttonName, description)
+    Text(parent, caption, 0, y - 6, 96)
+    Help(parent, 100, y, description)
+    local button
+    button = Button(parent, buttonName, "", 136, y, 146, function()
         local entries = {}
         for _, value in ipairs(choices) do entries[#entries + 1] = { label = labels[value], value = value } end
-        VIC:OpenChoiceMenu(btn, entries, function(value)
+        VIC:OpenChoiceMenu(button, entries, function(value)
             VIC.settings[key] = value
             VIC:RefreshOptions()
         end)
     end)
-
-    row.UpdateButton = UpdateButton
-    controls[#controls + 1] = row
-    return row
+    controls[#controls + 1] = { UpdateButton = function()
+        button:SetText(labels[VIC.settings[key]] or labels[VIC.defaults[key]])
+    end }
 end
 
 function VIC:RefreshOptions()
@@ -118,7 +118,8 @@ function VIC:RefreshOptions()
         end
     end
     if self.optionsPreview then
-        local lines = { "Live preview · Sample data", "Weak Flux" }
+        local lines = { "|cffffffffWeak Flux|r", "|cff71a9faCrafting Reagent|r",
+            "|cffffcc00Used by Blacksmiths to remove impurities.|r", " ", "|cffffcc00Vendor|r   25c", " " }
         if self.settings.enabled then
             local key = self.settings.modifierKey
             local hint = key ~= "OFF" and key ~= "NONE" and key or nil
@@ -135,12 +136,16 @@ function VIC:RefreshOptions()
             local sample = { vendors = {} }
             for i, vendor in ipairs({ "Edna Mullby", "Kaita Deepforge", "Brooke Stonebrade", "Hammon Karwn" }) do
                 sample.vendors[i] = { id = i, name = vendor, zone = "Example zone", x = 30 + i, y = 55 + i,
-                    quoteText = "1s (example)" }
+                    quoteText = i == 1 and "1s" or nil }
             end
-            sample.observedPriceText = "1s (example)"
+            sample.observedPriceText = "1s"
             self:AddVendorSection(preview, nil, sample, self.previewExpanded ~= false, hint, true)
         end
         self.optionsPreview:SetText(table.concat(lines, "\n"))
+    end
+    if self.optionsCollection then
+        local items, vendors, offers = self:CountPersonalItems()
+        self.optionsCollection:SetText(("%d vendors · %d items · %d offers"):format(vendors, items, offers))
     end
     if self.RefreshVendorTooltips then self:RefreshVendorTooltips(true) end
 end
@@ -155,90 +160,116 @@ function VIC:OpenOptions()
 end
 
 function VIC:CreateOptionsPanel()
-    local panel = CreateFrame("Frame", "VendorItemCheckOptionsPanel", UIParent)
-    panel.name = self.title
-    local categoryPanel = panel
+    controls = {}
+    self.optionsCollection = nil
+    local categoryPanel = CreateFrame("Frame", "VendorItemCheckOptionsPanel", UIParent)
+    categoryPanel.name = self.title
     local scroll = CreateFrame("ScrollFrame", nil, categoryPanel, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", 0, 0); scroll:SetPoint("BOTTOMRIGHT", -30, 0)
-    panel = CreateFrame("Frame", nil, scroll)
-    panel:SetSize(560, 850)
-    scroll:SetScrollChild(panel)
+    scroll:SetPoint("TOPLEFT", 0, 0)
+    scroll:SetPoint("BOTTOMRIGHT", -22, 0)
 
-    local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    title:SetPoint("TOPLEFT", 16, -16)
-    title:SetText(self.title)
+    local canvas = CreateFrame("Frame", nil, scroll)
+    scroll:SetScrollChild(canvas)
+    if self.StyleBrowserSurface then self:StyleBrowserSurface(canvas, "background") end
 
-    local version = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    version:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 8, 2)
-    version:SetText("v" .. self.version)
+    local header = CreateFrame("Frame", nil, canvas)
+    header:SetPoint("TOPLEFT", 12, -12)
+    Text(header, self.title, 0, 0, 275, "GameFontNormalLarge")
+    local subtitle = Text(header, "Find NPC sellers from item tooltips or the browser.", 0, -32, 520)
+    local headerRule = Rule(header, -52, 610, true)
 
-    local subtitle = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
-    subtitle:SetText("Enhances item tooltips by showing if an item can be bought from an NPC vendor.")
+    local form = CreateFrame("Frame", nil, canvas)
+    form:SetPoint("TOPLEFT", 12, -76)
+    form:SetSize(286, 383)
+    Text(form, "Item tooltips", 0, 0, 282, "GameFontNormal")
+    CreateCheckbox(form, "enabled", "Enable tooltip enhancements", "Show known sellers on item tooltips.", -19)
+    CreateStepper(form, -47)
+    CreateCheckbox(form, "showClosestFirst", "Prioritize nearby vendors", "List current-zone vendors first.", -78)
+    CreateCheckbox(form, "showCoordinates", "Show coordinates", "Include known or approximate coordinates.", -104)
+    CreateCheckbox(form, "showPrice", "Show purchase prices", "Include Classic reference prices or this character's observed quotes.", -130)
 
-    local function Heading(text, anchor)
-        local heading = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-        heading:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -18)
-        heading:SetWidth(500); heading:SetJustifyH("LEFT"); heading:SetText(text)
-        return heading
-    end
-    local tips = Heading("Tooltips", subtitle)
-    local enabled = CreateCheckbox(panel, "enabled", "Enable tooltip enhancements", "Show known vendor information on item tooltips.", tips)
-    local maxVendors = CreateStepper(panel, "maxVendors", "Maximum vendors:", 1, 10, 1, enabled)
-    local closest = CreateCheckbox(panel, "showClosestFirst", "Prioritize nearby vendors", "Prioritizes your current zone; distances across zones are not comparable.", maxVendors)
-    local coords = CreateCheckbox(panel, "showCoordinates", "Show coordinates", "Approximate locations retain their marker.", closest)
-    local price = CreateCheckbox(panel, "showPrice", "Show qualified purchase prices", "Classic reference values or this character's observed quotes.", coords)
-    local controlsHeading = Heading("Expansion controls", price)
-    local modifier = CreateModifierSelector(panel, controlsHeading, "modifierKey", "Keyboard expansion:",
-        VIC.keyboardModifiers, KEYBOARD_LABELS, "VICKeyboardModifier")
+    Rule(form, -155, 282)
+    Text(form, "Expansion controls", 0, -164, 282, "GameFontNormal")
+    CreateModifierSelector(form, -185, "modifierKey", "Keyboard", self.keyboardModifiers, KEYBOARD_LABELS,
+        "VICKeyboardModifier", "Hold the selected modifier to expand the vendor section.")
+    local commandsY = -225
     if self.client == "forever" then
-        modifier = CreateModifierSelector(panel, modifier, "controllerModifier", "Controller expansion:",
-            VIC.controllerModifiers, CONTROLLER_LABELS, "VICControllerModifier")
-        local hint = Heading("Controller expansion requires supported gamepad APIs; keyboard input remains available.", modifier)
-        modifier = hint
+        CreateModifierSelector(form, -216, "controllerModifier", "Controller", self.controllerModifiers, CONTROLLER_LABELS,
+            "VICControllerModifier", "Use a supported trigger or shoulder button. Normal controller actions stay available.")
+        Rule(form, -247, 282)
+        Text(form, "Merchant data", 0, -257, 282, "GameFontNormal")
+        CreateCheckbox(form, "recordMerchants", "Learn from merchants I visit", "Observations stay on this computer. Sharing is optional.", -277)
+        self.optionsCollection = Text(form, "", 0, -305, 282)
+        commandsY = -331
     end
-    local data = Heading("Merchant learning & data", modifier)
-    if self.client == "forever" then
-        data = CreateCheckbox(panel, "recordMerchants", "Learn from merchants I visit", "Saved locally. Sharing is optional and manual.", data)
-    end
-    local function Action(text, width, x, callback)
-        local button = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-        button:SetSize(width, 24); button:SetPoint("TOPLEFT", data, "BOTTOMLEFT", x, -18)
-        button:SetText(text); button:SetScript("OnClick", callback)
-        return button
-    end
-    Action("Browse", 90, 0, function() VIC:OpenBrowser() end)
-    Action("Data & sharing", 155, 95, function() VIC:OpenDataView("overview") end)
-    local reset = Action("Reset settings", 130, 260, function(button)
-        VIC:OpenChoiceMenu(button or VIC.optionsPanel, {
+    Rule(form, commandsY + 9, 282, true)
+    Text(form, "Slash commands", 0, commandsY, 282, "GameFontNormal")
+    Text(form, "/vic · /vendorcheck · /vic browse\n/vic settings · /vic help", 0, commandsY - 18, 282)
+
+    local preview = CreateFrame("Frame", nil, canvas)
+    Text(preview, "Live preview", 0, 0, 235, "GameFontNormal")
+    Text(preview, "Sample data · changes immediately", 0, -22, 235)
+    local card = CreateFrame("Frame", nil, preview)
+    card:SetPoint("TOPLEFT", 0, -44)
+    if self.StyleBrowserSurface then self:StyleBrowserSurface(card, "inset", "brass") end
+    self.optionsPreview = Text(card, "", 10, -10, 255)
+    local previewHint = Text(preview, "Choose a preview state below.", 0, -322, 255)
+    Button(preview, nil, "Collapsed", 0, -345, 84, function()
+        self.previewExpanded = false
+        self:RefreshOptions()
+    end)
+    Button(preview, nil, "Expanded", 90, -345, 84, function()
+        self.previewExpanded = true
+        self:RefreshOptions()
+    end)
+
+    local footer = CreateFrame("Frame", nil, canvas)
+    local footerRule = Rule(footer, 0, 610, true)
+    Button(footer, nil, "Browse", 0, -11, 66, function() self:OpenBrowser() end)
+    Button(footer, nil, "Data & sharing", 73, -11, 106, function() self:OpenDataView("overview") end)
+    local reset = Button(footer, nil, "Reset settings", 0, -11, 96, function(button)
+        self:OpenChoiceMenu(button or footer, {
             { label = "Cancel — keep settings", value = false },
             { label = "Reset settings; preserve observations", value = true },
         }, function(confirm)
             if not confirm then return end
-            for key, value in pairs(VIC.defaults) do VIC.settings[key] = value end
-            VIC:RefreshOptions()
-        end)
-    end)
-    self.optionsPreview = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    self.optionsPreview:SetPoint("TOPLEFT", 325, -100)
-    self.optionsPreview:SetWidth(210); self.optionsPreview:SetJustifyH("LEFT")
-    for i, label in ipairs({ "Collapsed", "Expanded" }) do
-        local button = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-        button:SetPoint("TOPLEFT", 325 + (i - 1) * 96, -325)
-        button:SetSize(90, 24)
-        button:SetText(label)
-        button:SetScript("OnClick", function()
-            self.previewExpanded = label == "Expanded"
+            for key, value in pairs(self.defaults) do self.settings[key] = value end
             self:RefreshOptions()
         end)
-    end
-    local commands = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    commands:SetPoint("TOPLEFT", reset, "BOTTOMLEFT", -260, -15)
-    commands:SetText("/vic · /vendorcheck · /vic browse · /vic settings · /vic help")
-
-    categoryPanel:SetScript("OnShow", function()
-        VIC:RefreshOptions()
     end)
+
+    local function Layout()
+        local viewportWidth = scroll.GetWidth and scroll:GetWidth() or 634
+        if viewportWidth < 1 then viewportWidth = 634 end
+        local width = math.max(308, math.min(760, viewportWidth - 2))
+        local contentWidth = width - 24
+        local stacked = contentWidth < 548
+        local previewWidth = stacked and contentWidth or contentWidth - 310
+        local previewY = stacked and (76 - commandsY + 58) or 76
+        local footerY = math.max(76 - commandsY + 55, previewY + 385)
+        canvas:SetSize(width, footerY + 48)
+        header:SetSize(contentWidth, 56)
+        subtitle:SetWidth(contentWidth)
+        if headerRule then headerRule:SetWidth(contentWidth) end
+        preview:SetSize(previewWidth, 371)
+        card:SetSize(previewWidth, 266)
+        self.optionsPreview:SetWidth(previewWidth - 20)
+        previewHint:SetWidth(previewWidth)
+        if preview.ClearAllPoints then preview:ClearAllPoints() end
+        preview:SetPoint("TOPLEFT", stacked and 12 or 322, -previewY)
+        footer:SetSize(contentWidth, 38)
+        if footer.ClearAllPoints then footer:ClearAllPoints() end
+        footer:SetPoint("TOPLEFT", 12, -footerY)
+        if footerRule then footerRule:SetWidth(contentWidth) end
+        if reset.ClearAllPoints then reset:ClearAllPoints() end
+        reset:SetPoint("TOPLEFT", contentWidth - 96, -11)
+    end
+    scroll:SetScript("OnSizeChanged", Layout)
+    categoryPanel:SetScript("OnShow", function()
+        Layout()
+        self:RefreshOptions()
+    end)
+    Layout()
 
     self.optionsPanel = categoryPanel
 
