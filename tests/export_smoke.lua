@@ -20,7 +20,7 @@ assert(VIC.exportBox:GetText() == "", "Reopening must clear the previous prepare
 VIC.exportBox.scripts.OnEscapePressed(VIC.exportBox)
 assert(not VIC.browserPanel:IsVisible())
 VIC:OpenDataView("overview")
-assert(VIC.exportPanel.body:GetText():find("1 recorded offers", 1, true))
+assert(VIC.exportPanel.metrics[3].value:GetText() == "1")
 VIC.client = "classic"
 VIC:OpenExport()
 assert(not VIC.exportPrepare.enabled and VIC.exportBox:GetText() == "")

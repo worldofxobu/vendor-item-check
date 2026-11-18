@@ -122,6 +122,48 @@ function VIC:BrowserOfferSummary(vendor, price)
         .. (vendor.quantity and vendor.quantity > 1 and (" · Stack " .. vendor.quantity) or "")
 end
 
+local colors = {
+    background = { 0.09, 0.11, 0.12 },
+    inset = { 0.059, 0.073, 0.087 },
+    header = { 0.13, 0.15, 0.17 },
+    border = { 0.32, 0.29, 0.23 },
+    brass = { 0.55, 0.42, 0.22 },
+    selection = { 0.20, 0.16, 0.07 },
+    gold = { 1, 0.80, 0.05 },
+    muted = { 0.67, 0.64, 0.58 },
+}
+
+local function Fill(parent, color, inset)
+    if not parent.CreateTexture then return end
+    local texture = parent:CreateTexture(nil, "BACKGROUND", nil, inset > 0 and 1 or 0)
+    if not texture.SetColorTexture then return end
+    texture:SetPoint("TOPLEFT", inset, -inset)
+    texture:SetPoint("BOTTOMRIGHT", -inset, inset)
+    texture:SetColorTexture(color[1], color[2], color[3], 1)
+    return texture
+end
+
+function VIC:StyleBrowserSurface(frame, background, border)
+    Fill(frame, colors[border or "border"], 0)
+    frame.surface = Fill(frame, colors[background or "inset"], 1)
+end
+
+local function SetSelected(frame, selected)
+    if frame.surface then
+        local color = colors[selected and "selection" or "inset"]
+        frame.surface:SetColorTexture(color[1], color[2], color[3], 1)
+    end
+end
+
+function VIC:CreateBrowserSurface(parent, x, y, width, height, background, border)
+    local panel = CreateFrame("Frame", nil, parent)
+    panel:SetPoint("TOPLEFT", x, y)
+    panel:SetSize(width, height)
+    if panel.SetFrameLevel and parent.GetFrameLevel then panel:SetFrameLevel(parent:GetFrameLevel()) end
+    self:StyleBrowserSurface(panel, background, border)
+    return panel
+end
+
 local function Label(parent, text, x, y, width)
     local label = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     label:SetPoint("TOPLEFT", x, y)
@@ -131,8 +173,15 @@ local function Label(parent, text, x, y, width)
     return label
 end
 
-local function Button(parent, text, x, y, width, action)
-    local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+function VIC:CreateBrowserButton(parent, text, x, y, width, action)
+    local button = CreateFrame("Button", nil, parent)
+    self:StyleBrowserSurface(button)
+    if button.SetNormalFontObject then
+        button:SetNormalFontObject(GameFontHighlightSmall)
+        button:SetHighlightFontObject(GameFontNormalSmall)
+        button:SetDisabledFontObject(GameFontDisableSmall)
+        button:SetHighlightTexture("Interface\\Buttons\\UI-Listbox-Highlight2", "ADD")
+    end
     button:SetSize(width, 24)
     button:SetPoint("TOPLEFT", x, y)
     button:SetText(text)
@@ -140,14 +189,26 @@ local function Button(parent, text, x, y, width, action)
     return button
 end
 
+local function Button(parent, text, x, y, width, action)
+    return VIC:CreateBrowserButton(parent, text, x, y, width, action)
+end
+
 local function Search(parent, x, y, width, action)
-    local box = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+    local box = CreateFrame("EditBox", nil, parent)
+    VIC:StyleBrowserSurface(box, "inset", "brass")
+    if box.SetTextInsets then box:SetTextInsets(9, 6, 0, 0) end
+    box:SetFontObject(GameFontHighlightSmall)
+    box.placeholder = Label(box, "", 9, -6, width - 15)
+    if box.placeholder.SetTextColor then box.placeholder:SetTextColor(unpack(colors.muted)) end
     box:SetSize(width, 24)
     box:SetPoint("TOPLEFT", x, y)
     box:SetAutoFocus(false)
     box:SetMaxLetters(100)
     box:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    box:SetScript("OnTextChanged", action)
+    box:SetScript("OnTextChanged", function(self)
+        if (self:GetText() or "") == "" then self.placeholder:Show() else self.placeholder:Hide() end
+        action()
+    end)
     return box
 end
 
@@ -163,11 +224,13 @@ function VIC:RefreshBrowser(rebuild)
     SortRows(rows)
     panel.rows = rows
     panel.page = math.max(1, math.min(panel.page, math.max(1, #rows - 6)))
-    local loading = false
-    if panel.tab == "items" then
-        for _, row in ipairs(rows) do if not (self.browserNames and self.browserNames[row.id]) then loading = true; break end end
+    if panel.selectFirst and #rows > 0 and not panel.compact then
+        panel.selected = panel.selected or rows[1].id
+        panel.selectFirst = nil
     end
-    panel.count:SetText(string.format("%d results%s", #rows, loading and " · names loading; search by ID" or " · scroll to browse"))
+    panel.count:SetText(string.format("%d %s", #rows, panel.tab))
+    panel.search.placeholder:SetText(panel.tab == "items" and "Search item name or ID" or "Search vendor name or NPC ID")
+    panel.detailSearch.placeholder:SetText(panel.tab == "items" and "Search sellers" or "Search inventory")
     for i, button in ipairs(panel.list) do
         local row = rows[panel.page - 1 + i]
         button.row = row
@@ -177,9 +240,20 @@ function VIC:RefreshBrowser(rebuild)
                 local ok, texture = false, nil
                 if api then ok, texture = pcall(api, row.id) end
                 button.icon:SetTexture(ok and texture or "Interface\\Icons\\INV_Misc_QuestionMark"); button.icon:Show()
+            elseif row then
+                button.icon:SetTexture("Interface\\Icons\\INV_Misc_Coin_01")
+                button.icon:Show()
             else button.icon:Hide() end
         end
-        if row then button:SetText((panel.selected == row.id and "> " or "") .. row.name .. (panel.tab == "items" and ("\n" .. #row.vendors .. " known sellers") or ("\n" .. (row.vendor.zone or "Location unknown")))); button:Show() else button:Hide() end
+        if row then
+            local selected = panel.selected == row.id
+            SetSelected(button, selected)
+            button.nameLabel:SetText(selected and ("|cffffcc00" .. row.name .. "|r") or row.name)
+            local subtitle = panel.tab == "items" and (#row.vendors .. " known sellers")
+                or ((row.vendor.zone or "Location unknown") .. " · " .. #row.items .. " items")
+            button.subtitle:SetText(subtitle)
+            button:Show()
+        else button:Hide() end
     end
     local previousSelection = panel.selected
     local selected = panel.selected and panel.index[panel.tab][panel.selected]
@@ -196,6 +270,9 @@ function VIC:RefreshBrowser(rebuild)
             local ok, texture = false, nil
             if api then ok, texture = pcall(api, selected.id) end
             panel.itemIcon:SetTexture(ok and texture or "Interface\\Icons\\INV_Misc_QuestionMark")
+            panel.itemIcon:Show()
+        elseif selected then
+            panel.itemIcon:SetTexture("Interface\\Icons\\INV_Misc_Coin_01")
             panel.itemIcon:Show()
         else panel.itemIcon:Hide() end
     end
@@ -214,7 +291,9 @@ function VIC:RefreshBrowser(rebuild)
             panel.description:SetText("Select a seller to browse its known inventory and track its location.")
         end
     else
-        panel.heading:SetText(expired and "Record no longer available" or ("Select an " .. (panel.tab == "items" and "item" or "vendor")))
+        panel.heading:SetText(expired and "Record no longer available" or #rows == 0
+            and (panel.search:GetText() ~= "" and "No " .. panel.tab .. " match your search" or "No " .. panel.tab .. " to display")
+            or ("Select " .. (panel.tab == "items" and "an item" or "a vendor")))
         panel.description:SetText(expired and "The evidence for this record may have expired. Select another result." or #rows == 0 and (panel.search:GetText() ~= "" and "No search matches. Clear the search or try an item/NPC ID."
                 or (panel.filters.source or panel.filters.zone or panel.filters.allFactions) and "No records match these filters. Choose Clear filters."
                 or self.client == "forever" and ("No known records yet. Visit merchants to learn their offers. Learning: " .. (self.settings.recordMerchants and "on" or "off") .. ". Missing data does not mean unavailable.")
@@ -287,7 +366,13 @@ function VIC:RefreshBrowser(rebuild)
             if inventory then button.track:Hide(); button.info:Hide()
             else button.track:Show(); button.info:Show() end
             button:Show()
-        else button:Hide(); if button.track then button.track:Hide(); button.info:Hide() end end
+        else
+            if button.icon then button.icon:Hide() end
+            button.caption:SetText("")
+            if inventory and selected then button:Show() else button:Hide() end
+            button.track:Hide()
+            button.info:Hide()
+        end
     end
     if panel.coverage then
         local personalItems, personalVendors = 0, 0
@@ -306,6 +391,7 @@ function VIC:RefreshBrowser(rebuild)
         for id, row in pairs(panel.index[name]) do
             if Matches(row.name, query) or Matches(tostring(id), query) then count = count + 1 end
         end
+        SetSelected(tab, panel.tab == name)
         tab:SetText((name == "items" and "Items" or "Vendors") .. "  " .. count)
     end
     panel.clearFilters:SetEnabled(next(panel.filters) ~= nil)
@@ -341,25 +427,33 @@ end
 
 function VIC:OpenBrowser()
     if not self.browserPanel then
-        local panel = CreateFrame("Frame", "VendorItemCheckBrowser", UIParent, "BasicFrameTemplateWithInset")
+        local panel = CreateFrame("Frame", "VendorItemCheckBrowser", UIParent)
         self.browserPanel = panel
-        panel:SetSize(900, 620)
+        panel:SetSize(570, 420)
         panel:SetPoint("CENTER")
         if panel.SetClampedToScreen then panel:SetClampedToScreen(true) end
         panel:SetMovable(true); panel:EnableMouse(true); panel:RegisterForDrag("LeftButton")
         panel:SetScript("OnDragStart", panel.StartMoving)
         panel:SetScript("OnDragStop", panel.StopMovingOrSizing)
         if UISpecialFrames then UISpecialFrames[#UISpecialFrames + 1] = "VendorItemCheckBrowser" end
-        (panel.TitleText or Label(panel, "", 15, -8, 700)):SetText("Vendor Item Check")
-        if panel.CreateTexture then
-            local background = panel:CreateTexture(nil, "BACKGROUND")
-            if background.SetColorTexture then
-                background:SetPoint("TOPLEFT", 4, -26)
-                background:SetPoint("BOTTOMRIGHT", -4, 4)
-                background:SetColorTexture(0.075, 0.085, 0.095, 1)
-            end
+        self:StyleBrowserSurface(panel, "background", "brass")
+        panel.titleBar = self:CreateBrowserSurface(panel, 2, -2, 566, 35, "header", "brass")
+        local title = Label(panel.titleBar, "Vendor Item Check", 37, -8, 365)
+        if title.SetFontObject then title:SetFontObject(GameFontNormalLarge) end
+        if title.SetTextColor then title:SetTextColor(unpack(colors.gold)) end
+        local crest = self:CreateBrowserSurface(panel.titleBar, 8, -6, 22, 22, "selection", "brass")
+        if crest.CreateTexture then
+            local icon = crest:CreateTexture(nil, "ARTWORK")
+            icon:SetSize(14, 14)
+            icon:SetPoint("CENTER")
+            icon:SetTexture("Interface\\Icons\\INV_Misc_Bag_10")
         end
+        Button(panel, "×", 543, -7, 20, function() panel:Hide() end)
+        panel.resultsInset = self:CreateBrowserSurface(panel, 8, -109, 182, 305, "inset", "brass")
+        panel.detailsInset = self:CreateBrowserSurface(panel, 196, -109, 368, 305, "inset", "brass")
+        panel.detailHeader = self:CreateBrowserSurface(panel.detailsInset, 5, -4, 358, 44, "header")
         panel.history = {}; panel.tabStates = {}
+        panel.selectFirst = true
         panel.filters = {}; panel.tab = "items"; panel.page = 1; panel.detailPage = 1
         local function Refresh() self:RefreshBrowser() end
         local function SaveState()
@@ -375,9 +469,9 @@ function VIC:OpenBrowser()
             panel.search:SetText(state.search or "")
             panel.detailSearch:SetText(state.detailSearch or "")
             panel.page = state.page or 1; panel.detailPage = state.detailPage or 1
-            panel.source:SetText("Source: " .. (panel.filters.source or "All"))
+            panel.source:SetText((panel.filters.source or panel.filters.discounted) and "Filters •" or "Filters")
             panel.zone:SetText("Zone: " .. (panel.filters.zone == "@current" and "Current" or panel.filters.zone or "Any"))
-            panel.faction:SetText(panel.filters.allFactions and "All factions" or "Your faction + unverified")
+            panel.faction:SetText(panel.filters.allFactions and "All factions" or "Friendly +?")
             self:RefreshBrowser(true)
             if state.expanded then
                 for _, row in ipairs(panel.details) do
@@ -397,7 +491,7 @@ function VIC:OpenBrowser()
         panel.settingsButton = Button(panel, "Settings", 750, -35, 120, function() self:OpenOptions() end)
         panel.itemsTab = Button(panel, "Items", 10, -38, 94, function() ChangeTab("items") end)
         panel.vendorsTab = Button(panel, "Vendors", 107, -38, 105, function() ChangeTab("vendors") end)
-        panel.source = Button(panel, "Source: All", 230, -35, 170, function()
+        panel.source = Button(panel, "Filters", 230, -35, 170, function()
             self:OpenChoiceMenu(panel.source, {
                 { label = "All sources", value = "all" },
                 { label = "Personal observations", value = "personal" },
@@ -406,21 +500,21 @@ function VIC:OpenBrowser()
             }, function(value)
                 if value == "discount" then panel.filters.discounted = not panel.filters.discounted
                 else panel.filters.source = value ~= "all" and value or nil end
-                panel.source:SetText("Source: " .. (panel.filters.source or "All") .. (panel.filters.discounted and " · Discounted" or ""))
+                panel.source:SetText((panel.filters.source or panel.filters.discounted) and "Filters •" or "Filters")
                 panel.page = 1; self:RefreshBrowser(true)
             end)
         end)
-        panel.faction = Button(panel, "Your faction + unverified", 410, -35, 260, function()
+        panel.faction = Button(panel, "Friendly +?", 410, -35, 260, function()
             self:OpenChoiceMenu(panel.faction, {
                 { label = "Your faction + unverified", value = false },
                 { label = "All factions", value = true },
             }, function(value)
                 panel.filters.allFactions = value
-                panel.faction:SetText(value and "All factions" or "Your faction + unverified")
+                panel.faction:SetText(value and "All factions" or "Friendly +?")
                 panel.page = 1; self:RefreshBrowser(true)
             end)
         end)
-        panel.zone = Button(panel, "Zone: All", 16, -68, 240, function()
+        panel.zone = Button(panel, "Zone: Any", 16, -68, 240, function()
             local choices = { { label = "Any zone", value = false }, { label = "Current zone", value = "@current" } }
             local zones = {}
             for zone in pairs(self:BuildBrowserIndex({}).zones) do zones[#zones + 1] = zone end
@@ -434,8 +528,8 @@ function VIC:OpenBrowser()
         end)
         panel.clearFilters = Button(panel, "Clear filters", 260, -68, 90, function()
             panel.filters = {}; panel.page = 1
-            panel.zone:SetText("Zone: All"); panel.source:SetText("Source: All")
-            panel.faction:SetText("Your faction + unverified")
+            panel.zone:SetText("Zone: All"); panel.source:SetText("Filters")
+            panel.faction:SetText("Friendly +?")
             self:RefreshBrowser(true)
         end)
 
@@ -447,7 +541,7 @@ function VIC:OpenBrowser()
         panel.description = Label(panel, "", 365, -99, 510)
         if panel.CreateTexture then
             panel.itemIcon = panel:CreateTexture(nil, "ARTWORK")
-            panel.itemIcon:SetSize(22, 22)
+            panel.itemIcon:SetSize(35, 35)
         end
         panel.detailSearch = Search(panel, 372, -155, 490, function() panel.detailPage = 1; Refresh() end)
         panel.detailLabel = Label(panel, "Search sellers or inventory", 372, -137, 490)
@@ -516,12 +610,16 @@ function VIC:OpenBrowser()
                 button.icon = button:CreateTexture(nil, "ARTWORK")
                 button.icon:SetSize(22, 22); button.icon:SetPoint("LEFT", 3, 0)
             end
+            button.nameLabel = Label(button, "", 38, -5, 125)
+            button.subtitle = Label(button, "", 38, -19, 125)
+            if button.subtitle.SetTextColor then button.subtitle:SetTextColor(unpack(colors.muted)) end
             panel.list[i] = button
         end
         for i = 1, 8 do
             local button = CreateFrame("Button", nil, panel)
             button:SetPoint("TOPLEFT", 365, -190 - (i - 1) * 55); button:SetSize(365, 53)
             if button.SetHighlightTexture then button:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD") end
+            self:StyleBrowserSurface(button)
             button.caption = Label(button, "", 0, 0, 355)
             if button.CreateTexture then
                 button.icon = button:CreateTexture(nil, "ARTWORK")
@@ -538,6 +636,7 @@ function VIC:OpenBrowser()
                 Refresh()
             end)
             button:SetScript("OnClick", function(b)
+                if not b.row then return end
                 local id = b.row.id
                 panel.tabStates[panel.tab] = SaveState()
                 panel.history[#panel.history + 1] = SaveState()
@@ -603,20 +702,37 @@ function VIC:OpenBrowser()
             self:SetSize(570, 420)
             if self.SetScale then self:SetScale(math.max(0.1, math.min(1, (width - 12) / 570, (height - 12) / 420))) end
             Move(self.back, 485, -37, 75)
-            Move(self.settingsButton, 490, -4, 55)
+            Move(self.data, 455, -7, 53)
+            Move(self.settingsButton, 513, -7, 24)
+            self.settingsButton:SetText("⚙")
             Move(self.zone, 283, -71, 92)
             Move(self.faction, 378, -71, 100)
             Move(self.source, 480, -71, 80)
             Move(self.clearFilters, 220, -38, 84)
             Move(self.search, 12, -71, 237)
             Move(self.clearSearch, 248, -71)
-            Move(self.count, 12, -108, 178)
+            Move(self.count, 16, -116, 166)
             local left = self.compact and 12 or 197
             local paneWidth = 558 - left
-            Move(self.heading, left + 30, -110, paneWidth - 30)
-            if self.itemIcon then Move(self.itemIcon, left, -108) end
-            Move(self.description, left, -132, paneWidth)
-            Move(self.track, 430, -105, 126)
+            Move(self.detailsInset, left - 1, -109)
+            self.detailsInset:SetSize(paneWidth + 7, 305)
+            self.detailHeader:SetSize(paneWidth - 1, 44)
+            self.resultsInset:SetSize(self.compact and 552 or 182, 305)
+            Visible(self.resultsInset, not self.compact or not detail)
+            Visible(self.detailsInset, not self.compact or detail)
+            Visible(self.detailHeader, detail)
+            if not detail and self.rows and #self.rows == 0 then
+                Move(self.detailsInset, 8, -109)
+                self.detailsInset:SetSize(556, 305)
+                Visible(self.resultsInset, false)
+                Move(self.heading, 126, -193, 320)
+                Move(self.description, 126, -216, 320)
+            else
+                Move(self.heading, left + 49, -120, paneWidth - 183)
+                Move(self.description, left + 49, -137, paneWidth - 57)
+            end
+            if self.itemIcon then Move(self.itemIcon, left + 8, -116) end
+            Move(self.track, 430, -122, 126)
             Move(self.detailSearch, left + (inventory and 6 or 208), -157, paneWidth - (inventory and 119 or 214))
             Move(self.continent, left + 2, -155)
             Move(self.sellerZone, left + 104, -155)
@@ -632,7 +748,10 @@ function VIC:OpenBrowser()
             Visible(self.previous, inventory and detail)
             Visible(self.next, inventory and detail)
             for i, row in ipairs(self.list) do
-                Move(row, 10, -130 - (i - 1) * 37, self.compact and 530 or 165)
+                Move(row, 10, -135 - (i - 1) * 36, self.compact and 530 or 179)
+                row:SetSize(self.compact and 530 or 179, 36)
+                row.nameLabel:SetWidth(self.compact and 480 or 134)
+                row.subtitle:SetWidth(self.compact and 480 or 134)
                 if self.compact and detail then row:Hide() end
             end
             for i, row in ipairs(self.details) do
@@ -642,14 +761,14 @@ function VIC:OpenBrowser()
                 local slotWidth = inventory and math.floor(paneWidth / 2) - 5 or paneWidth - 8
                 Move(row, left + column * (slotWidth + 5), y, slotWidth)
                 row:SetSize(slotWidth, 46)
-                Move(row.caption, inventory and 40 or 0, -3, inventory and slotWidth - 44 or slotWidth - 133)
+                Move(row.caption, inventory and 42 or 6, -8, inventory and slotWidth - 44 or slotWidth - 133)
                 Move(row.track, 422, y - 3, 67)
                 Move(row.info, 491, y - 3, 65)
             end
             Move(self.resultsScroll, self.compact and 550 or 180, -130)
             self.resultsScroll:SetSize(16, 238)
             Visible(self.resultsScroll, not self.compact or not detail)
-            Visible(self.count, not self.compact or not detail)
+            Visible(self.count, self.rows and #self.rows > 0 and (not self.compact or not detail))
             Move(self.detailsScroll, 555, -188)
             self.detailsScroll:SetSize(16, 170)
             Visible(self.detailsScroll, detail and not inventory)

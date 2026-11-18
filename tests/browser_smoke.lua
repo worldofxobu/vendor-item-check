@@ -9,6 +9,16 @@ function CreateFrame(...)
     function frame:SetValue(value) self.value = value end
     function frame:SetScale(value) self.scale = value end
     function frame:ClearAllPoints() end
+    function frame:CreateTexture()
+        local texture = {}
+        function texture:SetPoint() end
+        function texture:SetSize() end
+        function texture:SetTexture(path) self.path = path end
+        function texture:SetColorTexture(r, g, b, a) self.color = { r, g, b, a } end
+        function texture:Show() self.visible = true end
+        function texture:Hide() self.visible = false end
+        return texture
+    end
     function frame:SetEnabled(value) self.enabled = value end
     function frame:SetMovable() end
     function frame:EnableMouse() end
@@ -75,6 +85,9 @@ now = 1800000000
 VIC:OpenBrowser()
 local panel = VIC.browserPanel
 assert(panel.rows[1].name == "Item #10")
+assert(panel.titleBar.surface.color[4] == 1 and panel.resultsInset.surface.color[4] == 1)
+assert(panel.list[1].nameLabel:GetText():find("Item #10", 1, true))
+assert(panel.list[1].icon.visible)
 function GetItemInfo(id) if id == 10 then return "Test Reagent" end end
 panel.scripts.OnUpdate(panel, 0.3)
 assert(VIC:BrowserItemName(10) == "Test Reagent")

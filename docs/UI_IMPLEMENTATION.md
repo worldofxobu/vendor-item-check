@@ -12,5 +12,5 @@
 ## Pending client and Figma acceptance
 
 - [ ] Test on both live clients and record build, interface, dataset date, native map/control availability, tooltip coexistence, combat safety, and full selection of a large JSON document.
-- [ ] Compare the native UI against each approved frame at standard and constrained UI scales. Current layouts use native templates. Crest and portrait artwork, detailed frame styling, focus help, and visual polish need a follow-up comparison.
+- [ ] Compare the native UI against each approved frame at standard and constrained UI scales. The browser and Data overview use Figma-informed charcoal-and-brass surfaces and spacing. Compare the crest and portrait artwork, detailed frame styling, focus help, and visual polish against the approved frames.
 - [ ] Validate reputation and promotion evidence against the target APIs before enabling REP PRICE or SALE badges. Enable the CurseForge contact actions only after a verified project contact URL is supplied.

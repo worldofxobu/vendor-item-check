@@ -80,15 +80,6 @@ function VIC:BuildContribution()
     return string.sub(header, 1, -2) .. ',"records":[' .. table.concat(encoded, ",") .. "]}"
 end
 
-local function DataButton(panel, text, x, y, width, action)
-    local button = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    button:SetPoint("TOPLEFT", x, y)
-    button:SetSize(width, 24)
-    button:SetText(text)
-    button:SetScript("OnClick", action)
-    return button
-end
-
 function VIC:RefreshDataView()
     local panel = self.exportPanel
     if not panel or not self.browserPanel.dataView then return end
@@ -101,8 +92,11 @@ function VIC:RefreshDataView()
     local heading, body
     if view == "overview" then
         heading = "Data & sharing"
-        body = ("Your vendor data · Private and local\n\n%d vendors        %d items        %d recorded offers\n%s\n\nBundled directory · Read-only\n%d vendors        %d items\nData updated: %s")
-            :format(vendors, items, offers, offers == 0 and "No personal observations yet." or "Personal observations are retained for 30 days.", bundledVendors, bundledItems, revision)
+        body = offers == 0 and "No personal observations yet." or "Your locally collected vendor data and bundled directory coverage."
+        panel.metrics[1].value:SetText(tostring(vendors))
+        panel.metrics[2].value:SetText(tostring(items))
+        panel.metrics[3].value:SetText(tostring(offers))
+        panel.directory.text:SetText(("%d vendors      %d items      Data updated: %s"):format(bundledVendors, bundledItems, revision))
     elseif view == "status" then
         local version, build, _, interface
         if type(GetBuildInfo) == "function" then
@@ -127,6 +121,8 @@ function VIC:RefreshDataView()
     panel.back:SetText(view == "overview" and "Back to Browse" or "Back to Data")
     local function Show(widget, visible) if visible then widget:Show() else widget:Hide() end end
     Show(panel.status, view == "overview")
+    for _, card in ipairs(panel.metrics) do Show(card, view == "overview") end
+    Show(panel.directory, view == "overview")
     Show(panel.contribute, view ~= "contribute")
     panel.contribute:SetEnabled(eligible)
     Show(self.exportPrepare, view == "contribute" and not panel.document)
@@ -141,9 +137,10 @@ function VIC:OpenDataView(view)
     local browser = self.browserPanel
     if self.choiceMenu then self.choiceMenu:Hide() end
     if not self.exportPanel then
-        local panel = CreateFrame("Frame", nil, browser, "BasicFrameTemplateWithInset")
+        local panel = CreateFrame("Frame", nil, browser)
         panel:SetPoint("TOPLEFT", 5, -32)
         panel:SetSize(560, 380)
+        self:StyleBrowserSurface(panel, "background", "brass")
         if panel.EnableMouse then panel:EnableMouse(true) end
         if panel.SetFrameLevel and browser.GetFrameLevel then panel:SetFrameLevel(browser:GetFrameLevel() + 15) end
         self.exportPanel = panel
@@ -153,14 +150,30 @@ function VIC:OpenDataView(view)
         panel.body:SetPoint("TOPLEFT", 14, -65)
         panel.body:SetWidth(530)
         panel.body:SetJustifyH("LEFT")
-        panel.back = DataButton(panel, "Back", 10, -5, 122, function()
+        panel.back = self:CreateBrowserButton(panel, "Back", 10, -5, 122, function()
             if browser.dataView ~= "overview" then self:OpenDataView("overview"); return end
             browser.dataView = nil
             panel:Hide()
             self:RefreshBrowser(true)
         end)
-        panel.status = DataButton(panel, "View status", 410, -245, 130, function() self:OpenDataView("status") end)
-        panel.contribute = DataButton(panel, "Contribute data", 410, -285, 130, function() self:OpenExport() end)
+        panel.metrics = {}
+        for i, label in ipairs({ "Vendors", "Items", "Recorded offers" }) do
+            local card = self:CreateBrowserSurface(panel, 12 + 178 * (i - 1), -95, 170, 55, "inset", "brass")
+            card.value = card:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+            card.value:SetPoint("TOPLEFT", 10, -9)
+            local caption = card:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+            caption:SetPoint("TOPLEFT", 10, -33)
+            caption:SetText(label)
+            panel.metrics[i] = card
+        end
+        panel.directory = self:CreateBrowserSurface(panel, 12, -165, 526, 57, "inset")
+        local directoryHeading = panel.directory:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+        directoryHeading:SetPoint("TOPLEFT", 10, -9)
+        directoryHeading:SetText("Bundled directory")
+        panel.directory.text = panel.directory:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        panel.directory.text:SetPoint("TOPLEFT", 10, -33)
+        panel.status = self:CreateBrowserButton(panel, "View status", 410, -245, 130, function() self:OpenDataView("status") end)
+        panel.contribute = self:CreateBrowserButton(panel, "Contribute data", 410, -285, 130, function() self:OpenExport() end)
         panel.scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
         panel.scroll:SetPoint("TOPLEFT", 15, -157)
         panel.scroll:SetSize(506, 132)
@@ -179,13 +192,13 @@ function VIC:OpenDataView(view)
         end)
         panel.scroll:SetScrollChild(box)
         self.exportBox = box
-        self.exportPrepare = DataButton(panel, "Generate contribution data", 15, -170, 210, function()
+        self.exportPrepare = self:CreateBrowserButton(panel, "Generate contribution data", 15, -170, 210, function()
             local ok, document, message = pcall(self.BuildContribution, self)
             if ok and document then panel.document = document; box:SetText(document)
             else panel.message = ok and message or "Could not encode the stored observations." end
             self:RefreshDataView()
         end)
-        panel.select = DataButton(panel, "Select JSON to copy", 15, -295, 166, function()
+        panel.select = self:CreateBrowserButton(panel, "Select JSON to copy", 15, -295, 166, function()
             box:SetFocus()
             box:HighlightText()
         end)
