@@ -81,6 +81,10 @@ function CreateFrame(frameType, name, parent, template)
     function f:GetName()
         return self.name
     end
+    function f:SetEnabled(value) self.enabled = value end
+    function f:SetMovable() end
+    function f:EnableMouse() end
+    function f:RegisterForDrag() end
     function f:SetSize(w, h) end
     function f:SetWidth(w) self.width = w end
     function f:SetHeight(h) self.height = h end

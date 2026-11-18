@@ -66,7 +66,7 @@ for _, line in ipairs(tip.lines) do
     quote = quote or text:find("4c", 1, true)
     assert(not text:find("Everloot", 1, true), "Personal facts must not be attributed to Everloot")
 end
-assert(observed and access and quote)
+assert(not observed and not access and quote)
 
 -- Merge by evidence time without changing the bundled registry or duplicating vendors.
 local originalItems, originalVendors = VIC.Items, VIC.Vendors
@@ -141,7 +141,7 @@ assert(VIC:GetItemVendors(100006))
 VIC.settings.enabled = false
 slots[1].itemId = 100007
 Event("MERCHANT_UPDATE")
-assert(VIC:GetItemVendors(100007) == nil)
+assert(VIC:GetItemVendors(100007), "Tooltip settings do not stop merchant learning")
 VIC.settings.enabled = true
 
 -- Missing optional map/timer APIs: unknown location, event-driven retry fallback.

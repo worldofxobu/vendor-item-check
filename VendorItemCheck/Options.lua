@@ -42,7 +42,7 @@ local function CreateStepper(panel, key, label, minimum, maximum, step, anchor)
 
     local minus = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
     minus:SetSize(28, 22)
-    minus:SetPoint("LEFT", 240, 0)
+    minus:SetPoint("LEFT", 175, 0)
     minus:SetText("-")
 
     local value = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
@@ -118,12 +118,29 @@ function VIC:RefreshOptions()
         end
     end
     if self.optionsPreview then
-        local key = self.settings.modifierKey
-        self.optionsPreview:SetText("Example tooltip (sample data)\nSold by vendor"
-            .. (self.settings.showPrice and (self.client == "forever" and ": 10s (example observed quote)" or ": 10s (Classic reference)") or "")
-            .. "\n" .. (KEYBOARD_LABELS[key] or "Hold ALT")
-            .. (key == "NONE" and " · locations always visible" or key == "OFF" and " · use your controller choice for locations" or " for locations") .. " · up to " .. tostring(self.settings.maxVendors) .. " vendors"
-            .. (self.settings.showCoordinates and "\nExample Vendor · Example Zone (45.0, 62.0)" or "\nExample Vendor · Example Zone"))
+        local lines = { "Live preview · Sample data", "Weak Flux" }
+        if self.settings.enabled then
+            local key = self.settings.modifierKey
+            local hint = key ~= "OFF" and key ~= "NONE" and key or nil
+            local controller = self.settings.controllerModifier
+            if self.client == "forever" and key ~= "NONE" and controller ~= "OFF" and C_GamePad then
+                hint = hint and (hint .. " or " .. controller) or controller
+            end
+            local preview = {
+                GetName = function() end,
+                Show = function() end,
+                AddLine = function(_, line) lines[#lines + 1] = line end,
+                AddDoubleLine = function(_, left, right) lines[#lines + 1] = left .. "\n  " .. right end,
+            }
+            local sample = { vendors = {} }
+            for i, vendor in ipairs({ "Edna Mullby", "Kaita Deepforge", "Brooke Stonebrade", "Hammon Karwn" }) do
+                sample.vendors[i] = { id = i, name = vendor, zone = "Example zone", x = 30 + i, y = 55 + i,
+                    quoteText = "1s (example)" }
+            end
+            sample.observedPriceText = "1s (example)"
+            self:AddVendorSection(preview, nil, sample, self.previewExpanded ~= false, hint, true)
+        end
+        self.optionsPreview:SetText(table.concat(lines, "\n"))
     end
     if self.RefreshVendorTooltips then self:RefreshVendorTooltips(true) end
 end
@@ -171,8 +188,7 @@ function VIC:CreateOptionsPanel()
     local closest = CreateCheckbox(panel, "showClosestFirst", "Prioritize nearby vendors", "Prioritizes your current zone; distances across zones are not comparable.", maxVendors)
     local coords = CreateCheckbox(panel, "showCoordinates", "Show coordinates", "Approximate locations retain their marker.", closest)
     local price = CreateCheckbox(panel, "showPrice", "Show qualified purchase prices", "Classic reference values or this character's observed quotes.", coords)
-    local faction = CreateCheckbox(panel, "showFaction", "Show faction tags", "Unknown access remains unverified.", price)
-    local controlsHeading = Heading("Controls", faction)
+    local controlsHeading = Heading("Expansion controls", price)
     local modifier = CreateModifierSelector(panel, controlsHeading, "modifierKey", "Keyboard expansion:",
         VIC.keyboardModifiers, KEYBOARD_LABELS, "VICKeyboardModifier")
     if self.client == "forever" then
@@ -192,7 +208,7 @@ function VIC:CreateOptionsPanel()
         return button
     end
     Action("Browse", 90, 0, function() VIC:OpenBrowser() end)
-    if self.client == "forever" then Action("Share observations", 155, 95, function() VIC:OpenExport() end) end
+    Action("Data & sharing", 155, 95, function() VIC:OpenDataView("overview") end)
     local reset = Action("Reset settings", 130, 260, function(button)
         VIC:OpenChoiceMenu(button or VIC.optionsPanel, {
             { label = "Cancel — keep settings", value = false },
@@ -204,8 +220,21 @@ function VIC:CreateOptionsPanel()
         end)
     end)
     self.optionsPreview = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    self.optionsPreview:SetPoint("TOPLEFT", reset, "BOTTOMLEFT", -260, -18)
-    self.optionsPreview:SetWidth(480); self.optionsPreview:SetJustifyH("LEFT")
+    self.optionsPreview:SetPoint("TOPLEFT", 325, -100)
+    self.optionsPreview:SetWidth(210); self.optionsPreview:SetJustifyH("LEFT")
+    for i, label in ipairs({ "Collapsed", "Expanded" }) do
+        local button = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+        button:SetPoint("TOPLEFT", 325 + (i - 1) * 96, -325)
+        button:SetSize(90, 24)
+        button:SetText(label)
+        button:SetScript("OnClick", function()
+            self.previewExpanded = label == "Expanded"
+            self:RefreshOptions()
+        end)
+    end
+    local commands = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    commands:SetPoint("TOPLEFT", reset, "BOTTOMLEFT", -260, -15)
+    commands:SetText("/vic · /vendorcheck · /vic browse · /vic settings · /vic help")
 
     categoryPanel:SetScript("OnShow", function()
         VIC:RefreshOptions()
@@ -238,27 +267,12 @@ function VIC:OptionsInitialize()
         if cmd == "toggle" then
             VIC.settings.enabled = not VIC.settings.enabled
             VIC:RefreshOptions()
-            VIC:Print("Addon is now %s.", VIC.settings.enabled and "|cff00ff00enabled|r" or "|cffff0000disabled|r")
+            VIC:Print("Tooltip enhancement is now %s.", VIC.settings.enabled and "|cff00ff00enabled|r" or "|cffff0000disabled|r")
         elseif cmd == "status" then
-            local items, vendors = VIC:CountIndexedItems()
-            VIC:Print("%d items and %d vendors indexed. Enabled: %s, Modifier: %s, Max: %d",
-                items, vendors,
-                VIC.settings.enabled and "Yes" or "No",
-                VIC.settings.modifierKey,
-                VIC.settings.maxVendors)
-            local metadata = VIC.dataMetadata or {}
-            VIC:Print("Dataset: %s. Source: %s. Data as of: %s. Build: %s.",
-                metadata.client or "Unknown", metadata.source or "Unknown",
-                metadata.dataAsOf or "Unknown", metadata.build or "Unknown")
-            if VIC.client == "forever" then
-                VIC:Print("Controller modifier: %s (observes held input; game controls are unchanged).",
-                    CONTROLLER_LABELS[VIC.settings.controllerModifier] or "Controller off")
-                local personalItems, personalVendors = 0, 0
-                if VIC.CountPersonalItems then personalItems, personalVendors = VIC:CountPersonalItems() end
-                VIC:Print("Personal observations: %d items, %d vendors. Recording: %s.", personalItems, personalVendors,
-                    VIC.observations and VIC.settings.recordMerchants and "On" or "Off/unavailable")
-                VIC:Print("Personal prices are observed quotes for this character. Missing data is unknown.")
-                VIC:Print("%s", metadata.credit or "Data from Everloot (https://everloot.app), CC BY-SA 4.0.")
+            if VIC.OpenBrowser and VIC.OpenDataView then VIC:OpenDataView("status")
+            else
+                local items, vendors = VIC:CountIndexedItems()
+                VIC:Print("%d items and %d vendors indexed.", items, vendors)
             end
         elseif cmd == "settings" then
             VIC:OpenOptions()
@@ -275,7 +289,7 @@ function VIC:OptionsInitialize()
                 VIC:Print("Merchant recording is %s.", arg)
             else VIC:Print("Usage: /vic recording on|off") end
         elseif cmd == "max" and tonumber(arg) then
-            local n = math.max(1, math.min(10, tonumber(arg)))
+            local n = math.max(1, math.min(10, math.floor(tonumber(arg))))
             VIC.settings.maxVendors = n
             VIC:RefreshOptions()
             VIC:Print("Max vendors set to %d.", n)
@@ -284,7 +298,7 @@ function VIC:OptionsInitialize()
             VIC:Print("  /vic - Browse known items and vendors")
             VIC:Print("  /vic settings - Open settings")
             VIC:Print("  /vic browse - Browse known items and vendors")
-            VIC:Print("  /vic toggle - Toggle enabled state")
+            VIC:Print("  /vic toggle - Toggle tooltip enhancements")
             VIC:Print("  /vic status - Display index count and configuration")
             VIC:Print("  /vic max <1-10> - Set maximum vendors shown in tooltip")
             VIC:Print("  /vic recording on|off - Learn from Forever merchants")

@@ -70,7 +70,7 @@ for _, line in ipairs(tip.lines) do
     approximate = approximate or text:find("~41.0", 1, true)
     assert(not text:find("[Neutral]", 1, true))
 end
-assert(access and credit and approximate)
+assert(not access and not credit and approximate)
 
 now = now + 6
 info = VIC:GetItemVendors(100002)

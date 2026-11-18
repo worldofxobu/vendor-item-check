@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Added Data & Sharing with current coverage, client status, and explicit generation and selection of contribution JSON.
+- Updated the compact browser with paged merchant inventory, stock filters, searchable zones, and native waypoint controls.
+- Simplified tooltip details and made tooltip enhancement independent of merchant learning.
+
+
 ### Changed
 - Replace cycling browser filters and expansion controls with explicit choice menus.
 - Browse scrollable item/vendor lists with remembered tab state, Back navigation, direct seller tracking, and expandable offer details.

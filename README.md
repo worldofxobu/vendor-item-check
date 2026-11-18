@@ -6,7 +6,7 @@ Vendor Item Check is a lightweight, zero-dependency addon for **World of Warcraf
 
 - **Compact Tooltip Indicator**: Adds a clean, native-looking `Sold by vendor` line to item tooltips.
 - **Hold to Expand**: Hold `Alt` or your configured keyboard modifier to show vendor names, zones and coordinates. On Forever, a controller trigger or shoulder button can also expand the item tooltip. Release to collapse without re-hovering.
-- **Faction Filtering**: Filters known faction restrictions. Forever vendors whose access requirements are unrecorded are marked `Access unverified` in the expanded tooltip.
+- **Faction Filtering**: Filters known faction restrictions. The browser labels trusted and unknown access separately.
 - **Closest Vendor Priority**: Sorts vendors in your current zone and nearest coordinates to the top of the list.
 - **Vendor Purchase Price**: Displays historical reference prices on Classic Era and observed quotes from your own Forever merchant visits, including purchase quantities.
 - **Configurable Limit**: Caps long vendor lists for ubiquitous items (e.g. Refreshing Spring Water, Mild Spices) and displays a clean `+N more` counter.
@@ -14,7 +14,7 @@ Vendor Item Check is a lightweight, zero-dependency addon for **World of Warcraf
 
 ## Forever data coverage
 
-On Forever, the addon automatically learns from merchants you visit. Open a merchant window, then hover an observed item anywhere to see who sold it. Hold your modifier for the observation date, approximate location, and a price quote when available. Recording stays local and is enabled by default; turn it off with `/vic recording off` or **Learn from merchants I visit** in settings.
+On Forever, the addon automatically learns from merchants you visit. Open a merchant window, then hover an observed item anywhere to see who sold it. Hold your modifier for locations and qualified prices. Open seller details in the browser for observation dates. Recording stays local and is enabled by default; turn it off with `/vic recording off` or **Learn from merchants I visit** in settings.
 
 Your own observations are usable immediately and expire after 30 days. Prices and observed access apply only to the character that made the observation. Prices are historical quotes, not a promise of today's price or stock; discounts and restrictions may change. Non-integral per-item copper prices are shown as an exact batch cost. Offers with alternate or unknown costs do not get a pure-gold comparison.
 
@@ -28,15 +28,14 @@ Missing data does not mean the item cannot be bought.
 
 Bundled names and locations require their own corroboration. Unknown locations stay unknown; approximate coordinates are marked `~`. Bundled faction access is unrecorded and is not inferred from NPC reaction toward one player. Bundled records expire when fewer than three reports remain within 30 days. The external source does not record exact client builds for these observations, so post-launch confirmation does not guarantee a match to the latest hotfix.
 
-Run `/vic status` to see the selected dataset, source date, build information, and bundled item/vendor counts. Data refreshes are proposed weekly for maintainer review; accepted data reaches players through addon updates. No companion app or additional addon is required. Updates cannot guarantee current stock or availability to your character.
+Run `/vic status` to open the status view and see the selected dataset, source date, build information, and bundled item/vendor counts. Data refreshes are proposed weekly for maintainer review; accepted data reaches players through addon updates. No companion app or additional addon is required. Updates cannot guarantee current stock or availability to your character.
 
 Data from [Everloot](https://everloot.app), [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Attribution and data terms are included in `DATA_LICENSE.md` inside the addon folder.
 
 ## Share observations
 
 Run `/vic export` to open the contribution window. It explains what will be shared
-and the CC BY-SA 4.0 terms. If you agree, press **Prepare CC BY-SA export**, copy the
-selected text with Ctrl+C, and save it as a `.json` file to share with a maintainer.
+and the CC BY-SA 4.0 terms. If you agree, press **Generate contribution data**, then **Select JSON to copy** and Ctrl+C. You can share it manually through CurseForge when a project contact is available.
 Nothing is uploaded automatically.
 
 The export includes NPC/item facts, quoted prices and quantities, approximate NPC
@@ -73,9 +72,9 @@ A single download targets both clients:
 - Press and hold **Alt** while looking at the tooltip:
   ```text
   Sold by vendors (closest first) - 10s
-    Corina Steele - Elwynn Forest (41.5, 65.9) [Alliance]
-    Brog Hamfist - Elwynn Forest (44.0, 65.9) [Alliance]
-    Kurran Steele - Elwynn Forest (41.4, 65.6) [Alliance]
+    Corina Steele - Elwynn Forest (41.5, 65.9)
+    Brog Hamfist - Elwynn Forest (44.0, 65.9)
+    Kurran Steele - Elwynn Forest (41.4, 65.6)
     +8 more vendors across Azeroth
   ```
 
@@ -97,7 +96,7 @@ Filter by source (**All**, **Personal**, or **Bundled**), zone, or faction acces
 Open the zone menu to select a zone or All zones. Long menus support scrolling and Up/Down buttons. Access defaults
 to your faction plus unverified vendors; choose all factions to include known opposing
 vendors. A second search field filters the selected inventory or seller list.
-Item names load from the client cache; unavailable names appear as `Item <ID>` and
+Item names load from the client cache; unavailable names appear as `Item #ID` and
 remain searchable by ID. They update when the client supplies the name.
 
 Prices retain their context: Classic values are historical references, and Forever
@@ -107,12 +106,9 @@ recorded stock and prices are not live availability. Forever records expire afte
 30 days, and its browser initially fills from merchants you visit while bundled
 coverage is empty. Classic has no personal merchant journal.
 
-Select a vendor and click **Track vendor** for a movable destination panel. It
-shows the saved zone and coordinates; `~` marks approximate locations. **Show on
-map** places a native waypoint and opens the map when the client supports it and
-the record has a usable map ID. Otherwise, use the displayed coordinates; Classic's
-older records do not include map IDs. Unknown locations cannot be tracked. There
-is no navigation arrow or live NPC tracking.
+Select **Set Waypoint** when a vendor has fresh coordinates and your client supports native waypoints. **Remove Waypoint** clears only the matching point created by Vendor Item Check. Closing the browser leaves it in place.
+
+Use **Data** in the browser or **Data & sharing** in settings to see coverage and open the status and contribution views. The tooltip toggle and merchant learning can be enabled separately.
 
 Only one vendor is tracked at a time, for the current login session. **Stop
 tracking** or the panel's close button clears it; an expired location also clears

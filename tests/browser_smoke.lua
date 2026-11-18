@@ -44,9 +44,7 @@ assert(VIC:BrowserOfferText(index.vendors[1].items[1].vendor):find("Stock observ
 assert(not VIC:CanTrackVendor({ x = 0, y = 20 }))
 assert(not VIC:CanTrackVendor({ x = 101, y = 20 }))
 C_Map = nil
-assert(VIC:TrackVendor(index.vendors[1].vendor), "Tracking panel works without map APIs")
-assert(not VIC.trackingPanel.map.enabled and not VIC:ShowTrackedVendorOnMap())
-assert(VIC.trackingPanel.text:GetText():find("~51.0", 1, true))
+assert(not VIC:TrackVendor(index.vendors[1].vendor), "Waypoint requires map APIs")
 local waypoint
 UiMapPoint = { CreateFromCoordinates = function(id, x, y)
     return { uiMapID = id, position = { GetXY = function() return x, y end } }
@@ -57,7 +55,7 @@ C_Map = {
     SetUserWaypoint = function(point) waypoint = point end,
     ClearUserWaypoint = function() waypoint = nil end,
 }
-assert(VIC:ShowTrackedVendorOnMap())
+assert(VIC:TrackVendor(index.vendors[1].vendor))
 local x, y = waypoint.position:GetXY()
 assert(x == 0.51 and y == 0.61 and waypoint.uiMapID == 7)
 waypoint = UiMapPoint.CreateFromCoordinates(99, 0.1, 0.2)
@@ -69,15 +67,14 @@ VIC:StopTrackingVendor()
 assert(waypoint == nil, "Remove addon-owned waypoint")
 VIC:TrackVendor(index.vendors[1].vendor)
 now = now + 31 * 86400
-VIC.trackingPanel.scripts.OnUpdate(VIC.trackingPanel, 1)
-assert(not VIC.trackedVendor and not VIC.trackingPanel:IsVisible())
+assert(not VIC:CanMapVendor(index.vendors[1].vendor))
 assert(next(VIC:BuildBrowserIndex().items) == nil, "Expired offers disappear")
 now = 1800000000
 
 -- UI navigation, source filtering, search, and asynchronous item-name refresh.
 VIC:OpenBrowser()
 local panel = VIC.browserPanel
-assert(panel.rows[1].name == "Item 10")
+assert(panel.rows[1].name == "Item #10")
 function GetItemInfo(id) if id == 10 then return "Test Reagent" end end
 panel.scripts.OnUpdate(panel, 0.3)
 assert(VIC:BrowserItemName(10) == "Test Reagent")
@@ -123,13 +120,14 @@ panel.scripts.OnUpdate(panel, 0.3)
 assert(VIC:BrowserItemName(20) == "Newly Cached")
 
 -- Compact drill-in returns to results, direct tracking preserves item selection.
-UIParent = { GetWidth = function() return 800 end, GetHeight = function() return 600 end }
+UIParent = { GetWidth = function() return 500 end, GetHeight = function() return 600 end }
 panel.filters = {}; panel.search:SetText(""); panel.tab = "items"; panel.selected = nil
 VIC:RefreshBrowser(true)
-assert(panel.compact and not panel.heading.visible)
+assert(panel.compact)
 panel.list[1].scripts.OnClick(panel.list[1])
 assert(panel.selected and panel.heading.visible and not panel.list[1]:IsVisible())
 local selected = panel.selected
+VIC:StopTrackingVendor()
 panel.details[1].track.scripts.OnClick()
 assert(VIC.trackedVendor and panel.selected == selected, "Direct tracking stays on the item")
 panel.history = {}
@@ -147,7 +145,7 @@ panel.search:SetText(""); panel.tab = "items"; panel.selected = nil
 VIC:RefreshBrowser(true)
 assert(#panel.rows == 26)
 panel.list[1].scripts.OnMouseWheel(panel.list[1], -100)
-assert(panel.page == 17 and panel.resultsScroll.value == 17)
+assert(panel.page == 20 and panel.resultsScroll.value == 20)
 panel.resultsScroll.scripts.OnValueChanged(panel.resultsScroll, 1)
 assert(panel.page == 1)
 panel.search:SetText("100"); panel.filters.zone = "missing"

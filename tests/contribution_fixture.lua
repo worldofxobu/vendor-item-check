@@ -19,7 +19,7 @@ function GetMerchantItemInfo() return "Item", nil, 20, 5, -1, true, true, false 
 function GetMerchantPriceDiscount() return 0.95 end
 
 local VIC = {}
-for _, file in ipairs({ "Data", "DataForever", "Core", "Merchant", "Export", "Tooltip", "Options" }) do
+for _, file in ipairs({ "Data", "DataForever", "Core", "Merchant", "Export", "Tooltip", "Tracking", "Browser", "Options" }) do
     assert(loadfile("VendorItemCheck/" .. file .. ".lua"))("VendorItemCheck", VIC)
 end
 VendorItemCheckDB = { privateSetting = "PRIVATE_TOKEN", accountName = "PRIVATE_ACCOUNT", realmName = "PRIVATE_REALM" }

@@ -126,19 +126,7 @@ function VIC:IsExpanded()
     return expanded
 end
 
-local function GetFactionTag(factionCode)
-    if factionCode == "?" then
-        return "|cff888888[Access unverified]|r"
-    elseif factionCode == "A" then
-        return "|cff0070dd[Alliance]|r"
-    elseif factionCode == "H" then
-        return "|cffc41e3a[Horde]|r"
-    else
-        return "|cffffff00[Neutral]|r"
-    end
-end
-
-function VIC:AddVendorSection(tooltip, itemID, itemInfo, isExpanded, hintKey)
+function VIC:AddVendorSection(tooltip, itemID, itemInfo, isExpanded, hintKey, preview)
     if TooltipContainsSection(tooltip) then
         return
     end
@@ -146,7 +134,7 @@ function VIC:AddVendorSection(tooltip, itemID, itemInfo, isExpanded, hintKey)
     local settings = self.settings or self.defaults
     if isExpanded == nil then isExpanded, hintKey = self:GetExpansionState() end
 
-    AddBlankLine(tooltip)
+    if not preview then AddBlankLine(tooltip) end
 
     if itemInfo.enemyOnly then
         local enemyTag = itemInfo.enemyFaction or "Enemy"
@@ -162,9 +150,30 @@ function VIC:AddVendorSection(tooltip, itemID, itemInfo, isExpanded, hintKey)
 
     local priceText = ""
     if settings.showPrice and itemInfo.price and itemInfo.price > 0 then
-        priceText = ": " .. (self:FormatMoney(itemInfo.price) or "")
+        priceText = ": " .. (self:FormatMoney(itemInfo.price) or "") .. " (reference)"
     elseif settings.showPrice and not isExpanded and itemInfo.observedPriceText then
         priceText = ": " .. itemInfo.observedPriceText .. " |cff888888(observed)|r"
+    end
+
+    if settings.showPrice and not isExpanded and not preview and not itemInfo.price then
+        local best, context, different, comparable
+        for _, vendor in ipairs(vendors) do
+            if vendor.quoteText and vendor.copper and vendor.quantity and vendor.quantity > 0 then
+                if not best then
+                    best, context, comparable = vendor, vendor.discount, true
+                elseif context ~= vendor.discount then
+                    comparable = false
+                else
+                    local left = vendor.copper * best.quantity
+                    local right = best.copper * vendor.quantity
+                    if left ~= right then different = true end
+                    if left < right then best = vendor end
+                end
+            end
+        end
+        if best and comparable then
+            priceText = (different and ": from " or ": ") .. best.quoteText .. " |cff888888(observed)|r"
+        end
     end
 
     if not isExpanded then
@@ -178,7 +187,7 @@ function VIC:AddVendorSection(tooltip, itemID, itemInfo, isExpanded, hintKey)
     else
         -- Expanded view
         local playerZone, playerX, playerY = self:GetPlayerLocation()
-        if settings.showClosestFirst then
+        if settings.showClosestFirst and not preview then
             vendors = self:SortVendorsByProximity(vendors, playerZone, playerX, playerY)
         end
 
@@ -206,19 +215,9 @@ function VIC:AddVendorSection(tooltip, itemID, itemInfo, isExpanded, hintKey)
             end
             rightParts[#rightParts + 1] = "|cffb0b0b0" .. zoneStr .. "|r"
 
-            if settings.showFaction then
-                rightParts[#rightParts + 1] = v.accessObserved and "|cff888888[Observed access]|r" or GetFactionTag(v.faction)
-            end
-
-            if v.personal then
-                local stamp = date and date("!%Y-%m-%d", v.observedAt) or "previous visit"
-                rightParts[#rightParts + 1] = "|cff888888Observed " .. stamp .. "|r"
-                if settings.showPrice and v.quoteText then
-                    rightParts[#rightParts + 1] = v.quoteText
-                elseif settings.showPrice and v.alternateCost then
-                    rightParts[#rightParts + 1] = "Alternate cost; see merchant"
-                end
-                if v.stock == 0 then rightParts[#rightParts + 1] = "Out of stock when observed" end
+            if settings.showPrice then
+                local price = v.quoteText or (itemInfo.price and (self:FormatMoney(itemInfo.price) or "0c") .. " (reference)")
+                if price then rightParts[#rightParts + 1] = price end
             end
 
             local right = table.concat(rightParts, " ")
@@ -231,15 +230,7 @@ function VIC:AddVendorSection(tooltip, itemID, itemInfo, isExpanded, hintKey)
                 0.6, 0.6, 0.6
             )
         end
-        if self.client == "forever" then
-            local hasBundled = false
-            for _, vendor in ipairs(vendors) do if not vendor.personal then hasBundled = true end end
-            if hasBundled then
-                tooltip:AddLine("|cff888888Bundled access unverified; no personal price quote.|r", 0.6, 0.6, 0.6)
-                local credit = self.dataMetadata and self.dataMetadata.credit or "Everloot: https://everloot.app (CC BY-SA 4.0)"
-                tooltip:AddLine("|cff888888" .. credit .. "|r", 0.6, 0.6, 0.6)
-            end
-        end
+
     end
 
     tooltip:Show()

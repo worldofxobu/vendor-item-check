@@ -34,22 +34,27 @@ local function JSON(value)
     error("Unsupported observation value")
 end
 
+local function PublicValue(value)
+    local kind = type(value)
+    if kind == "string" or kind == "boolean" or kind == "number" then return value end
+end
+
 local function PublicRecord(record)
     -- Explicit field lists keep account/character keys and unrelated settings local.
     local public = {}
     for _, key in ipairs({ "vendorId", "itemId", "vendorName", "observedAt", "build", "interface", "channel",
         "playerFaction", "priceCopper", "quantity", "stock", "canPurchase", "hasExtendedCost", "discount", "costsComplete" }) do
-        public[key] = record[key]
+        public[key] = PublicValue(record[key])
     end
     local costs = {}
     for _, cost in ipairs(record.costs or {}) do
-        costs[#costs + 1] = { itemId = cost.itemId, currencyId = cost.currencyId, quantity = cost.quantity }
+        costs[#costs + 1] = { itemId = PublicValue(cost.itemId), currencyId = PublicValue(cost.currencyId), quantity = PublicValue(cost.quantity) }
     end
     public.costs = Array(costs)
     if record.location then
         public.location = {}
         for _, key in ipairs({ "mapId", "x", "y", "approximate", "zone" }) do
-            public.location[key] = record.location[key]
+            public.location[key] = PublicValue(record.location[key])
         end
     end
     return public
@@ -68,65 +73,134 @@ function VIC:BuildContribution()
             end
         end
     end
+    if #encoded == 0 then return nil, "No eligible observations to share." end
     table.sort(encoded)
     local header = JSON({ schema = "vic.observations/1", client = "forever", licence = "CC BY-SA 4.0",
         reporterId = self.observations.reporterId, exportedAt = now })
     return string.sub(header, 1, -2) .. ',"records":[' .. table.concat(encoded, ",") .. "]}"
 end
 
-function VIC:OpenExport()
-    if self.client ~= "forever" or not self.observations then
-        self:Print("No supported Forever observations are available.")
-        return
+local function DataButton(panel, text, x, y, width, action)
+    local button = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    button:SetPoint("TOPLEFT", x, y)
+    button:SetSize(width, 24)
+    button:SetText(text)
+    button:SetScript("OnClick", action)
+    return button
+end
+
+function VIC:RefreshDataView()
+    local panel = self.exportPanel
+    if not panel or not self.browserPanel.dataView then return end
+    local view = self.browserPanel.dataView
+    local items, vendors, offers, latest = self:CountPersonalItems()
+    local bundledItems, bundledVendors = self:CountIndexedItems()
+    local meta = self.dataMetadata or {}
+    local revision = meta.dataAsOf or "Unavailable"
+    local eligible = self.client == "forever" and offers > 0
+    local heading, body
+    if view == "overview" then
+        heading = "Data & sharing"
+        body = ("Your vendor data · Private and local\n\n%d vendors        %d items        %d recorded offers\n%s\n\nBundled directory · Read-only\n%d vendors        %d items\nData updated: %s")
+            :format(vendors, items, offers, offers == 0 and "No personal observations yet." or "Personal observations are retained for 30 days.", bundledVendors, bundledItems, revision)
+    elseif view == "status" then
+        local version, build, _, interface
+        if type(GetBuildInfo) == "function" then
+            local ok
+            ok, version, build, _, interface = pcall(GetBuildInfo)
+            if not ok then version = nil end
+        end
+        local recording = self.client == "forever" and self.observations and (self.settings.recordMerchants and "On" or "Off") or "Unavailable"
+        heading = "Data status"
+        body = ("Active dataset: %s\nClient build: %s\nInterface: %s\nBundled data revision: %s\nBundled inventory: %d vendors / %d items\nPersonal observations: %d offers\nMerchant learning: %s\nLast merchant learned: %s\n\nCoverage does not mean live availability.")
+            :format(meta.client or self.client or "Unavailable", version and (version .. " / " .. tostring(build)) or "Unavailable",
+                tostring(interface or "Unavailable"), revision, bundledVendors, bundledItems, offers, recording,
+                latest and (date and date("!%Y-%m-%d %H:%M UTC", latest) or tostring(latest)) or "Unavailable")
+    else
+        heading = "Contribute your vendor data"
+        body = "Shared: vendor/item IDs, offers, prices, locations, times and a stable installation pseudonym.\nPrivate: character, account and realm identifiers.\nCC BY-SA 4.0 applies if you share. Nothing is sent automatically."
+        if not eligible and not panel.document then body = body .. "\n\nNo eligible observations to export." end
+        if panel.message then body = body .. "\n\n" .. panel.message end
     end
+    panel.heading:SetText(heading)
+    panel.body:SetText(body)
+    panel.back:SetText(view == "overview" and "Back to Browse" or "Back to Data")
+    local function Show(widget, visible) if visible then widget:Show() else widget:Hide() end end
+    Show(panel.status, view == "overview")
+    Show(panel.contribute, view ~= "contribute")
+    panel.contribute:SetEnabled(eligible)
+    Show(self.exportPrepare, view == "contribute" and not panel.document)
+    self.exportPrepare:SetEnabled(eligible)
+    Show(panel.scroll, view == "contribute" and panel.document)
+    Show(panel.select, view == "contribute" and panel.document)
+    Show(panel.contact, view == "contribute" and panel.document)
+end
+
+function VIC:OpenDataView(view)
+    self:OpenBrowser()
+    local browser = self.browserPanel
+    if self.choiceMenu then self.choiceMenu:Hide() end
     if not self.exportPanel then
-        local panel = CreateFrame("Frame", "VendorItemCheckExport", UIParent, "BasicFrameTemplateWithInset")
-        panel:SetSize(640, 450)
-        panel:SetPoint("CENTER")
-        if panel.SetClampedToScreen then panel:SetClampedToScreen(true) end
-        if UISpecialFrames then UISpecialFrames[#UISpecialFrames + 1] = "VendorItemCheckExport" end
-        local title = panel.TitleText or panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        title:SetText("Vendor Item Check - Share observations")
-        local notice = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        notice:SetPoint("TOPLEFT", 18, -38)
-        notice:SetWidth(594)
-        notice:SetJustifyH("LEFT")
-        notice:SetText("Sharing is optional. Prepare an export only if you agree to share these observations under CC BY-SA 4.0 (creativecommons.org/licenses/by-sa/4.0/). Character/account names and GUIDs are excluded. Dates, NPC locations and a stable installation pseudonym are included. Nothing is uploaded.")
-        local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
-        scroll:SetPoint("TOPLEFT", 18, -130)
-        scroll:SetPoint("BOTTOMRIGHT", -38, 55)
-        local box = CreateFrame("EditBox", nil, scroll)
+        local panel = CreateFrame("Frame", nil, browser, "BasicFrameTemplateWithInset")
+        panel:SetPoint("TOPLEFT", 5, -32)
+        panel:SetSize(560, 380)
+        if panel.EnableMouse then panel:EnableMouse(true) end
+        if panel.SetFrameLevel and browser.GetFrameLevel then panel:SetFrameLevel(browser:GetFrameLevel() + 15) end
+        self.exportPanel = panel
+        panel.heading = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+        panel.heading:SetPoint("TOPLEFT", 14, -36)
+        panel.body = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        panel.body:SetPoint("TOPLEFT", 14, -65)
+        panel.body:SetWidth(530)
+        panel.body:SetJustifyH("LEFT")
+        panel.back = DataButton(panel, "Back", 10, -5, 122, function()
+            if browser.dataView ~= "overview" then self:OpenDataView("overview"); return end
+            browser.dataView = nil
+            panel:Hide()
+            self:RefreshBrowser(true)
+        end)
+        panel.status = DataButton(panel, "View status", 410, -245, 130, function() self:OpenDataView("status") end)
+        panel.contribute = DataButton(panel, "Contribute data", 410, -285, 130, function() self:OpenExport() end)
+        panel.scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
+        panel.scroll:SetPoint("TOPLEFT", 15, -157)
+        panel.scroll:SetSize(506, 132)
+        local box = CreateFrame("EditBox", nil, panel.scroll)
         box:SetMultiLine(true)
         box:SetAutoFocus(false)
         box:SetFontObject(ChatFontNormal)
-        box:SetWidth(570)
-        box:SetHeight(260)
+        box:SetWidth(502)
+        box:SetHeight(132)
         box:SetMaxLetters(0)
-        box:SetScript("OnEscapePressed", function(edit) edit:ClearFocus(); panel:Hide() end)
-        box:SetScript("OnTextChanged", function() scroll:UpdateScrollChildRect() end)
-        scroll:SetScrollChild(box)
-        local prepare = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-        prepare:SetSize(180, 24)
-        prepare:SetPoint("BOTTOMLEFT", 18, 18)
-        prepare:SetText("Prepare CC BY-SA export")
-        prepare:SetScript("OnClick", function()
-            local ok, document, message = pcall(VIC.BuildContribution, VIC)
-            if ok and document then
-                box:SetText(document)
-                box:SetFocus()
-                box:HighlightText()
-            else
-                VIC:Print("%s", ok and message or "Could not encode the stored observations.")
-            end
+        box:SetScript("OnEscapePressed", function(edit) edit:ClearFocus(); browser:Hide() end)
+        box:SetScript("OnTextChanged", function(edit)
+            local expected = panel.document or ""
+            if edit:GetText() ~= expected then edit:SetText(expected) end
+            panel.scroll:UpdateScrollChildRect()
         end)
-        local hint = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-        hint:SetPoint("LEFT", prepare, "RIGHT", 12, 0)
-        hint:SetText("Copy with Ctrl+C; save as a .json file.")
-        self.exportPanel, self.exportBox, self.exportPrepare = panel, box, prepare
+        panel.scroll:SetScrollChild(box)
+        self.exportBox = box
+        self.exportPrepare = DataButton(panel, "Generate contribution data", 15, -170, 210, function()
+            local ok, document, message = pcall(self.BuildContribution, self)
+            if ok and document then panel.document = document; box:SetText(document)
+            else panel.message = ok and message or "Could not encode the stored observations." end
+            self:RefreshDataView()
+        end)
+        panel.select = DataButton(panel, "Select JSON to copy", 15, -295, 166, function()
+            box:SetFocus()
+            box:HighlightText()
+        end)
+        panel.contact = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        panel.contact:SetPoint("TOPLEFT", 15, -325)
+        panel.contact:SetText("Press Ctrl+C, then send it on CurseForge. Project contact link unavailable.")
     end
+    browser.dataView = view
+    self.exportPanel.document, self.exportPanel.message = nil, nil
+    self.exportBox:ClearFocus()
     self.exportBox:SetText("")
-    if self.exportPanel.SetScale and UIParent and UIParent.GetWidth and UIParent.GetHeight then
-        self.exportPanel:SetScale(math.min(1, (UIParent:GetWidth() - 24) / 640, (UIParent:GetHeight() - 24) / 450))
-    end
     self.exportPanel:Show()
+    self:RefreshDataView()
+end
+
+function VIC:OpenExport()
+    self:OpenDataView("contribute")
 end

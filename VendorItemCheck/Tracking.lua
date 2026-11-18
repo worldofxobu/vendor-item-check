@@ -37,7 +37,6 @@ function VIC:StopTrackingVendor()
     end
     self.vendorWaypoint = nil
     self.trackedVendor = nil
-    if self.trackingPanel then self.trackingPanel:Hide() end
 end
 
 function VIC:ShowTrackedVendorOnMap()
@@ -56,47 +55,23 @@ function VIC:ShowTrackedVendorOnMap()
     return true
 end
 
-function VIC:TrackVendor(vendor)
-    if not self:CanTrackVendor(vendor) then return false end
-    self:StopTrackingVendor()
-    self.trackedVendor = {}
-    for key, value in pairs(vendor) do self.trackedVendor[key] = value end
-    if not self.trackingPanel then
-        local panel = CreateFrame("Frame", "VendorItemCheckTracking", UIParent, "BasicFrameTemplateWithInset")
-        self.trackingPanel = panel
-        panel:SetSize(310, 155); panel:SetPoint("CENTER", UIParent, "CENTER", 330, 0)
-        panel:SetMovable(true); panel:EnableMouse(true); panel:RegisterForDrag("LeftButton")
-        panel:SetScript("OnDragStart", panel.StartMoving); panel:SetScript("OnDragStop", panel.StopMovingOrSizing)
-        if panel.TitleText then panel.TitleText:SetText("Tracked vendor") end
-        panel.text = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-        panel.text:SetPoint("TOPLEFT", 14, -35); panel.text:SetWidth(272); panel.text:SetJustifyH("LEFT")
-        panel.status = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        panel.status:SetPoint("BOTTOMLEFT", 12, 42); panel.status:SetWidth(286); panel.status:SetJustifyH("LEFT")
-        if panel.SetClampedToScreen then panel:SetClampedToScreen(true) end
-        local map = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-        map:SetPoint("BOTTOMLEFT", 12, 12); map:SetSize(130, 24); map:SetText("Show on map")
-        map:SetScript("OnClick", function()
-            if not self:ShowTrackedVendorOnMap() then panel.status:SetText("Map waypoint unavailable; use coordinates.") end
-        end)
-        panel.map = map
-        local stop = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-        stop:SetPoint("BOTTOMRIGHT", -12, 12); stop:SetSize(130, 24); stop:SetText("Stop tracking")
-        stop:SetScript("OnClick", function() self:StopTrackingVendor() end)
-        if panel.CloseButton then panel.CloseButton:SetScript("OnClick", function() self:StopTrackingVendor() end) end
-        local elapsed = 0
-        panel:SetScript("OnUpdate", function(_, delta)
-            elapsed = elapsed + delta
-            if elapsed >= 1 then
-                elapsed = 0
-                if not self:CanTrackVendor(self.trackedVendor) then self:StopTrackingVendor() end
-            end
-        end)
+function VIC:OwnsVendorWaypoint(vendor)
+    if not self.vendorWaypoint or not C_Map then return false end
+    if not SamePoint(Call(C_Map.GetUserWaypoint), self.vendorWaypoint) then
+        self.vendorWaypoint = nil
+        return false
     end
-    local panel = self.trackingPanel
-    panel.text:SetText(string.format("%s\n%s %s%.1f, %.1f%s", vendor.name, vendor.zone or "Location unknown",
-        vendor.approximate and "~" or "", vendor.x, vendor.y,
-        ""))
-    panel.status:SetText(self:CanMapVendor(vendor) and "" or "Map waypoint unavailable; use coordinates.")
-    panel.map:SetEnabled(self:CanMapVendor(vendor)); panel:Show()
-    return true
+    if not vendor or not self:CanTrackVendor(vendor) or type(vendor.mapID) ~= "number" then return false end
+    local point = UiMapPoint and Call(UiMapPoint.CreateFromCoordinates, vendor.mapID, vendor.x / 100, vendor.y / 100)
+    return SamePoint(point, self.vendorWaypoint)
+end
+
+function VIC:TrackVendor(vendor)
+    if self:OwnsVendorWaypoint(vendor) then
+        self:StopTrackingVendor()
+        return true
+    end
+    if not self:CanMapVendor(vendor) then return false end
+    self.trackedVendor = vendor
+    return self:ShowTrackedVendorOnMap()
 end

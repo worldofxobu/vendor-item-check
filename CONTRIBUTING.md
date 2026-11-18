@@ -79,7 +79,7 @@ freshness or character-specific quote checks. Search indexes are transient; item
 names resolve in bounded batches from guarded client APIs. Merchant scans refresh
 an open browser; reopening and periodic visible refreshes recheck freshness.
 
-`Tracking.lua` keeps one session-only destination. Native waypoints require a
+`Tracking.lua` keeps session-only ownership of the native waypoint. Native waypoints require a
 recorded map ID and guarded waypoint APIs; zone strings must never be guessed into
 map IDs. Coordinates are stored as percentages and converted to normalized map
 coordinates only at the waypoint boundary. Clear only a waypoint that still
@@ -88,8 +88,7 @@ matches the addon-owned point. Do not alter native supertracking.
 Run `lua tests/browser_smoke.lua` for synthetic cross-link navigation, filtering,
 name loading, expiry, quote privacy and waypoint ownership checks. In each supported
 client, also inspect layout at common UI scales, long/localized names, item hover,
-search/paging, live merchant refresh, and map/coordinate fallback behavior. Verify
-moving/closing the tracker, replacing destinations, and preserving user waypoints.
+search/paging, live merchant refresh, and map/coordinate fallback behavior. Verify closing the browser, replacing destinations, and preserving user waypoints.
 
 ## Vendor data pipeline
 
@@ -117,8 +116,7 @@ The latest offer per NPC/item/character is saved under the versioned
 `VendorItemCheckDB.observations` subtree; existing flat settings remain compatible.
 Unknown future observation schemas are preserved and recording stays unavailable.
 
-Recording is on by default on Forever and stops when either the recording setting
-or the addon is disabled. Indexes are rebuilt and stale observations pruned at
+Recording is on by default on Forever and stops when the recording setting is disabled. Indexes are rebuilt and stale observations pruned at
 startup, login and merchant opening. Personal records expire after 30 days; no
 current clock means no personal evidence is used. Character GUIDs stay local.
 Other characters can see observed inventory, but never inherit a personal price or
@@ -346,7 +344,7 @@ Check compact results/detail navigation and viewport fitting on both clients.
 Settings reset must require a choice and preserve observations. Preview content is
 labelled example data; it must never enter the vendor index. Price qualification
 and unknown access remain visible in summary rows. Inspect long names, row actions,
-icons, and the optional export window in-game at common UI scales.
+icons, and the embedded contribution view in-game at common UI scales.
 
 Synthetic browser tests exercise compact drill-in, direct seller tracking, slider
 bounds, and filter reset preserving the search. Synthetic settings tests select
