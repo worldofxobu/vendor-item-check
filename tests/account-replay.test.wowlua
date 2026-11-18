@@ -1,0 +1,105 @@
+import test, config from "wowlua:test"
+import * as mock from "wowlua:mock"
+
+config({ profile = "account-replay" })
+
+local function vic(): any
+    return _G["VendorItemCheck"]
+end
+
+local function selectRow(tab: string, query: string, id: number): any
+    local addon = vic()
+    if not addon.browserPanel or not addon.browserPanel:IsShown() then mock.slash("/vic") end
+    local panel = addon.browserPanel
+    mock.click(tab == "vendors" and panel.vendorsTab or panel.itemsTab)
+    if panel.compact and panel.selected then mock.click(panel.back) end
+    mock.click(panel.clearSearch)
+    mock.typeText(panel.search, query)
+    mock.waitUntil(function() return #panel.rows == 1 and panel.rows[1].id == id end, "matching observed result")
+    mock.click(panel.list[1])
+    assert(panel.selected == id and panel.heading:IsVisible(), "selected row is not visible")
+    return panel
+end
+
+local function offer(item: number, vendor: number): any
+    local result = vic():GetItemVendors(item, { source = "personal", allFactions = true })
+    for _, row in ipairs(result.vendors) do
+        if row.id == vendor then return row end
+    end
+    error("Observed vendor is absent")
+end
+
+@test("loads all saved Forever observations and preserves quote privacy")
+local function counts()
+    local addon = vic()
+    assert(addon.client == "forever", "Forever did not initialize")
+    local guid = UnitGUID("player")
+    assert(not issecretvalue(guid) and guid == "Player-1-00000001", "the replay character GUID did not load")
+    local items, vendors, offers, latest = addon:CountPersonalItems()
+    assert(items == 903 and vendors == 164 and offers == 2498 and latest == 1795018798,
+        string.format("save count mismatch: %s items, %s vendors, %s offers, %s latest", items, vendors, offers, latest))
+    local row = offer(3371, 1286)
+    assert(row.name == "Edna Mullby" and row.zone == "Stormwind City" and row.mapID == 1453, "recorded vendor or location changed")
+    assert(row.copper == 18 and row.quantity == 5 and row.stock == -1 and row.accessObserved and row.quoteText, "the primary character lost its batch quote")
+    mock.setPlayer({ guid = "Player-1-00000003" })
+    guid = UnitGUID("player")
+    assert(not issecretvalue(guid) and guid == "Player-1-00000003", "mock character switch failed")
+    local alt = offer(3371, 1286)
+    assert(alt.copper == 20 and alt.quantity == 5 and alt.quoteText, "the other saved character lost its own quote")
+    mock.setPlayer({ guid = "Player-1-00000004" })
+    local outsider = offer(3371, 1286)
+    assert(not outsider.quoteText and not outsider.copper and not outsider.accessObserved and outsider.personal, "quote or access leaked across characters")
+    mock.setPlayer({ guid = "Player-1-00000001" })
+end
+
+@test("renders Edna Mullby's saved inventory")
+local function inventory()
+    local panel = selectRow("vendors", "Edna Mullby", 1286)
+    assert(panel.heading:GetText() == "Edna Mullby" and panel.description:GetText():find("Stormwind City", 1, true), "saved vendor identity did not render")
+    assert(#panel.index.vendors[1286].items == 37, "inventory count does not match saved offers")
+    mock.waitUntil(function()
+        for _, row in ipairs(panel.index.vendors[1286].items) do
+            if row.name:find("^Item #") then return false end
+        end
+        return true
+    end, "resolve the recorded vendor's item names")
+    assert(panel.detailCount:GetText() == "Page 1 of 5", "inventory paging did not render")
+    assert(panel.details[1].row and panel.details[1].caption:IsVisible(), "saved inventory was not drawn")
+    assert(panel.details[1].offer:GetText():find("each", 1, true), "the observed quote is missing")
+end
+
+@test("renders and cross-links saved item sellers")
+local function sellers()
+    local panel = selectRow("items", "Refreshing Spring Water", 159)
+    mock.waitUntil(function() return panel.heading:GetText() == "Refreshing Spring Water" end, "real item name")
+    local offered = panel.index.items[159].vendors
+    assert(#offered >= 29, "recorded sellers are missing")
+    assert(panel.details[1].row and panel.details[1].location:GetText():find("Observed access", 1, true), "the first seller's access context is absent")
+    mock.click(panel.details[1].info)
+    assert(panel.expandedSummary:IsShown() and panel.expandedSummary:GetText():find("Observed", 1, true), "saved evidence is absent")
+    mock.click(panel.details[1])
+    assert(panel.tab == "vendors" and panel.selected, "seller-to-inventory cross-link did not open")
+    mock.click(panel.back)
+    assert(panel.tab == "items" and panel.selected == 159 and panel.search:GetText() == "Refreshing Spring Water", "Back did not restore the item search")
+end
+
+@test("renders the expanded tooltip from saved observations")
+local function tooltip()
+    if vic().browserPanel then vic().browserPanel:Hide() end
+    mock.setModifiers({})
+    local compact = table.concat(mock.showTooltip("item", { id = 159 }), "\n")
+    assert(compact:find("Refreshing Spring Water", 1, true) and compact:find("Sold by vendor", 1, true)
+        and compact:find("Hold ALT", 1, true), "compact tooltip did not include saved vendor evidence: " .. compact)
+    mock.setModifiers({ alt = true })
+    local expanded = table.concat(mock.tooltipLines(), "\n")
+    local quoted = false
+    for i = 1, GameTooltip:NumLines() do
+        local left: any = _G["GameTooltipTextLeft" .. i]
+        local right: any = _G["GameTooltipTextRight" .. i]
+        if left and right and string.find(left:GetText() or "", "Innkeeper Allison", 1, true) then
+            local details = right:GetText() or ""
+            quoted = string.find(details, "23c", 1, true) ~= nil and string.find(details, " / 5", 1, true) ~= nil
+        end
+    end
+    assert(expanded:find("Innkeeper Allison", 1, true) and quoted, "expanded tooltip did not show the real merchant and batch quote")
+end

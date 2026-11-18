@@ -111,16 +111,24 @@ World of Warcraft installation. A local Forever installation provides textures a
 for screenshots and the debugger UI.
 
 Open the repository root in VS Code with the `wowlua.wowlua` extension installed.
-Start **WoWLua: Run Addon** and open **wowlua: UI** from the Command Palette.
-Restart the debug session after saving source edits to rebuild the addon.
+Start **WoWLua: Run Addon** for a fresh character or **WoWLua: Forever Account Replay**
+to open Edna Mullby's 37-item saved inventory on login. Open **wowlua: UI** from the
+Command Palette to interact with the emulated UI. Restart the debug session after
+saving source edits to rebuild the addon.
+
+The account replay uses anonymized saved observations and an item catalog in
+`tests/profiles/account-replay.json`. The replay mock pins the observations to the
+capture date. The fixture exercises the browser and quote privacy using historical
+observations. Keep private SavedVariables and account files outside the tracked fixture.
 
 Use `python3 tests/run_wowlua.py --wow PATH_TO_WORLD_OF_WARCRAFT` to supply an
 installation path on the command line. Add `--screenshots .cache/wowlua-review` to
 render the synthetic merchant window, browser states and expanded tooltip. Add
-`--compact` to exercise the synthetic UI at 480×800.
+`--compact` to exercise the synthetic UI at 480×800. The account replay uses its
+recorded viewport in either mode.
 
 Use the BigWigs packager for release ZIPs. The WoWLua manifest, lockfile, editor
-configuration, and UI tests are development files excluded from release ZIPs.
+configuration, and replay fixtures are development files excluded from release ZIPs.
 
 ## Vendor data pipeline
 

@@ -1,0 +1,30 @@
+import test, config from "wowlua:test"
+import * as mock from "wowlua:mock"
+
+config({ profile = "account-replay" })
+
+@test("shows the stock filter choices")
+local function stockMenu()
+    local vic: any = _G["VendorItemCheck"]
+    mock.waitUntil(function() return vic.browserPanel and vic.browserPanel.stock:IsVisible() end, "Edna inventory")
+    local panel = vic.browserPanel
+    mock.click(panel.stock)
+    local menu = vic.choiceMenu
+    assert(menu:IsShown(), "stock menu did not appear")
+    local expected = { "All stock", "In stock", "Sold out", "Unknown stock" }
+    for i, label in ipairs(expected) do
+        assert(menu.rows[i]:IsVisible() and menu.rows[i]:GetText() == label, label)
+    end
+end
+
+@test("filters stock and closes the menu")
+local function filterStock()
+    local vic: any = _G["VendorItemCheck"]
+    mock.waitUntil(function() return vic.browserPanel and vic.browserPanel.stock:IsVisible() end, "Edna inventory")
+    local panel = vic.browserPanel
+    if vic.choiceMenu then vic.choiceMenu:Hide() end
+    mock.click(panel.stock)
+    mock.click(vic.choiceMenu.rows[2])
+    assert(not vic.choiceMenu:IsShown() and panel.filters.stock == "available", "the menu did not apply the filter")
+    assert(panel.stock:GetText() == "In stock", "the selected filter did not display")
+end
