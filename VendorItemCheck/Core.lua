@@ -135,16 +135,18 @@ function VIC:GetItemVendors(itemID, filters)
     end
 
     local playerFaction = self:GetPlayerFaction()
+    local now = self.client == "forever" and self.ObservationNow and self:ObservationNow()
     local friendlyVendors = {}
     local totalVendors = 0
     local enemyVendorsCount = 0
+    local hiddenVendors = {}
 
     for _, vendorID in ipairs(itemData.v) do
         local rawVendor = self.Vendors and self.Vendors[vendorID]
         local offer = itemData.offers and itemData.offers[vendorID]
         if self.client == "forever" then
             if not offer or not offer.expires or not offer.reporters or offer.reporters < 3 or
-                (time and time() > offer.expires) then
+                (not now or now > offer.expires) then
                 rawVendor = nil
             end
         end
@@ -153,9 +155,9 @@ function VIC:GetItemVendors(itemID, filters)
             local vFac = rawVendor[3] or (self.client == "forever" and "?" or "N")
             if filters.allFactions or self:IsVendorFriendly(vFac, playerFaction) then
                 local locationValid = self.client ~= "forever" or
-                    (rawVendor.locationExpires and (not time or time() <= rawVendor.locationExpires))
+                    (rawVendor.locationExpires and now <= rawVendor.locationExpires)
                 local nameValid = self.client ~= "forever" or
-                    (rawVendor.nameExpires and (not time or time() <= rawVendor.nameExpires))
+                    (rawVendor.nameExpires and now <= rawVendor.nameExpires)
                 local zone = locationValid and rawVendor[2] or "Location unknown"
                 if locationValid and rawVendor.mapID and C_Map and C_Map.GetMapInfo then
                     local ok, info = pcall(C_Map.GetMapInfo, rawVendor.mapID)
@@ -174,10 +176,12 @@ function VIC:GetItemVendors(itemID, filters)
                     approximate = rawVendor.approximate,
                     offer = offer,
                     locationExpires = rawVendor.locationExpires,
+                    locationExpired = self.client == "forever" and rawVendor.locationExpires and not locationValid,
                     source = "bundled",
                 }
             else
                 enemyVendorsCount = enemyVendorsCount + 1
+                hiddenVendors[vendorID] = true
             end
         end
     end
@@ -194,7 +198,7 @@ function VIC:GetItemVendors(itemID, filters)
         enemyFaction = playerFaction and ((playerFaction == "Alliance") and "Horde" or "Alliance") or nil,
     }
     if self.client == "forever" and filters.source ~= "bundled" and self.MergePersonalVendors then
-        self:MergePersonalVendors(itemID, result)
+        self:MergePersonalVendors(itemID, result, hiddenVendors)
     end
     if self.client == "forever" and not bundledItem and result.totalCount == 0 and not result.enemyOnly then return nil end
     return result

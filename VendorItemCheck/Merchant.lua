@@ -215,7 +215,7 @@ function VIC:PersonalQuote(record)
     return (price == 0 and "0c" or self:FormatMoney(price)) .. " / " .. record.quantity
 end
 
-function VIC:MergePersonalVendors(itemID, info)
+function VIC:MergePersonalVendors(itemID, info, hiddenVendors)
     local entries = self.personalIndex and self.personalIndex[itemID]
     local now = self:ObservationNow()
     local character = Call(UnitGUID, "player")
@@ -232,21 +232,23 @@ function VIC:MergePersonalVendors(itemID, info)
                 end
             end
         end
-        if chosen then
+        if chosen and not (hiddenVendors and hiddenVendors[vendorId]) then
             local existing = byID[vendorId] and info.vendors[byID[vendorId]]
             local bundledAt = existing and existing.offer and existing.offer.lastSeenEpoch or 0
             if not existing or chosen.observedAt >= bundledAt then
                 local location = chosen.location or {}
+                local discount = sameCharacter and chosen.discount
+                if not Number(discount, 0.000001) or discount > 1 then discount = nil end
                 local vendor = {
                     id = vendorId, name = chosen.vendorName or ("Vendor " .. vendorId),
                     zone = location.zone or "Location unknown", mapID = location.mapId,
-                    x = location.x or 0, y = location.y or 0, approximate = true, faction = "?",
+                    x = location.x or 0, y = location.y or 0, approximate = true, faction = existing and existing.faction or "?",
                     personal = true, source = "personal", observedAt = chosen.observedAt, stock = chosen.stock,
                     locationExpires = chosen.observedAt + 30 * 86400,
                     accessObserved = sameCharacter and chosen.canPurchase == true,
                     quantity = chosen.quantity,
-                    copper = sameCharacter and chosen.canPurchase == true and chosen.hasExtendedCost == false and chosen.priceCopper or nil,
-                    discount = sameCharacter and chosen.discount or nil,
+                    copper = sameCharacter and chosen.canPurchase == true and chosen.hasExtendedCost == false and Integer(chosen.priceCopper, 0) and chosen.priceCopper or nil,
+                    discount = discount,
                     quoteText = sameCharacter and self:PersonalQuote(chosen) or nil,
                     alternateCost = sameCharacter and chosen.hasExtendedCost == true,
                 }

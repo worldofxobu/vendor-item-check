@@ -36,10 +36,11 @@ function VIC:BuildBrowserIndex(filters, ignoreZone)
     if self.client == "forever" then
         for id in pairs(self.personalIndex or {}) do ids[id] = true end
     end
+    local zone = filters.zone
+    if zone == "@current" then zone = self:GetPlayerLocation() end
     for id in pairs(ids) do
         local info = self:GetItemVendors(id, { source = filters.source, allFactions = true })
         for _, vendor in ipairs(info and info.vendors or {}) do
-            local zone = filters.zone == "@current" and (self:GetPlayerLocation() or false) or filters.zone
             if (ignoreZone or not zone or vendor.zone == zone) and
                 (not filters.discounted or vendor.discount and vendor.discount > 0 and vendor.discount < 1 and vendor.copper) then
                 vendor.inaccessible = not self:IsVendorFriendly(vendor.faction, self:GetPlayerFaction())
@@ -119,26 +120,6 @@ function VIC:BrowserOfferSummary(vendor, price)
         .. (vendor.stock == -1 and " · ∞" or vendor.stock == 0 and " · Sold out" or
             type(vendor.stock) == "number" and vendor.stock > 0 and (" · " .. vendor.stock .. " left") or " · ?")
         .. (vendor.quantity and vendor.quantity > 1 and (" · Stack " .. vendor.quantity) or "")
-end
-
-function VIC:ShowBrowserNotice(title, message)
-    if not self.browserNotice then
-        local frame = CreateFrame("Frame", "VendorItemCheckNotice", UIParent, "BasicFrameTemplateWithInset")
-        frame:SetSize(470, 300); frame:SetPoint("CENTER")
-        if frame.SetFrameStrata then frame:SetFrameStrata("DIALOG") end
-        if frame.SetClampedToScreen then frame:SetClampedToScreen(true) end
-        frame.heading = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-        frame.heading:SetPoint("TOPLEFT", 18, -35); frame.heading:SetWidth(430)
-        frame.body = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        frame.body:SetPoint("TOPLEFT", 18, -65); frame.body:SetWidth(430); frame.body:SetJustifyH("LEFT")
-        if UISpecialFrames then UISpecialFrames[#UISpecialFrames + 1] = "VendorItemCheckNotice" end
-        self.browserNotice = frame
-    end
-    if self.browserNotice.SetScale and UIParent and UIParent.GetWidth and UIParent.GetHeight then
-        self.browserNotice:SetScale(math.min(1, (UIParent:GetWidth() - 24) / 470, (UIParent:GetHeight() - 24) / 300))
-    end
-    self.browserNotice.heading:SetText(title); self.browserNotice.body:SetText(message)
-    self.browserNotice:Show()
 end
 
 local function Label(parent, text, x, y, width)
@@ -327,7 +308,7 @@ function VIC:RefreshBrowser(rebuild)
         end
         tab:SetText((name == "items" and "Items" or "Vendors") .. "  " .. count)
     end
-    if panel.clearFilters then panel.clearFilters:SetEnabled(panel.filters.source ~= nil or panel.filters.zone ~= nil or panel.filters.allFactions == true) end
+    panel.clearFilters:SetEnabled(next(panel.filters) ~= nil)
     if selected then panel.detailSearch:Show() else panel.detailSearch:Hide() end
     if panel.expanded then
         local expanded
@@ -354,7 +335,7 @@ function VIC:RefreshBrowser(rebuild)
     local waypointAvailable = self:CanMapVendor(panel.destination) or self:OwnsVendorWaypoint(panel.destination)
     panel.track:SetEnabled(waypointAvailable)
     if inventory and selected and not waypointAvailable then
-        panel.description:SetText(panel.description:GetText() .. "\nWaypoint unavailable for this location.")
+        panel.description:SetText(panel.description:GetText() .. (panel.destination.locationExpired and "\nLocation expired — waypoint unavailable." or "\nWaypoint unavailable for this location."))
     end
 end
 
@@ -408,10 +389,6 @@ function VIC:OpenBrowser()
             panel.tabStates[panel.tab] = SaveState()
             Restore(panel.tabStates[tab] or { tab = tab })
         end
-        panel.help = Button(panel, "Help", 750, -68, 120, function()
-            self:ShowBrowserNotice("Find items and vendors",
-                "Choose Items to find known sellers, or Vendors to explore known inventories. Search by name or ID. Use the filters to narrow results.\n\nClick a row to inspect it; click a related item or vendor to follow it. Back restores your previous view. Scroll either list with the mouse wheel or scrollbar.\n\nTrack saves one destination for this session. Locations may be approximate. Prices and stock are recorded evidence, not live availability.\n\nOn Forever, visit merchants with learning enabled to grow your local journal. /vic settings opens settings.")
-        end)
         panel.back = Button(panel, "Back", 680, -35, 65, function()
             local state = table.remove(panel.history)
             if not state then panel.selected = nil; Refresh(); return end
@@ -626,7 +603,6 @@ function VIC:OpenBrowser()
             self:SetSize(570, 420)
             if self.SetScale then self:SetScale(math.max(0.1, math.min(1, (width - 12) / 570, (height - 12) / 420))) end
             Move(self.back, 485, -37, 75)
-            self.help:Hide()
             Move(self.settingsButton, 490, -4, 55)
             Move(self.zone, 283, -71, 92)
             Move(self.faction, 378, -71, 100)
