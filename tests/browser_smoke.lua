@@ -35,7 +35,9 @@ local now = 1800000000
 function time() return now end
 function UnitGUID() return "owner" end
 VIC.client = "forever"
-VIC.Items = { [10] = { v = { 1 }, offers = { [1] = { expires = now + 100, reporters = 3, lastSeenEpoch = now - 10 } } } }
+VIC.Items = { [10] = { v = { 1 }, offers = { [1] = {
+    expires = now + 100, reporters = 3, lastSeenEpoch = now - 10, observedCopper = 23, priceContext = "unknown",
+} } } }
 VIC.Vendors = { [1] = { "Bundled Vendor", "Zone", "?", 50, 60,
     mapID = 7, nameExpires = now + 100, locationExpires = now + 100 } }
 local record = { observedAt = now, vendorName = "Personal Vendor", location = { mapId = 7, zone = "Zone", x = 51, y = 61 },
@@ -120,10 +122,16 @@ panel.source.scripts.OnClick(); VIC.choiceMenu.rows[2].scripts.OnClick()
 assert(panel.filters.source == "personal")
 panel.source.scripts.OnClick(); VIC.choiceMenu.rows[3].scripts.OnClick()
 assert(panel.filters.source == "bundled" and not panel.index.items[20])
+assert(panel.details[1].offer:GetText():find("Price unverified", 1, true))
+assert(not panel.details[1].offer:GetText():find("23c", 1, true), "Unqualified bundled amounts must stay out of offer rows")
+panel.details[1].info.scripts.OnClick()
+assert(panel.expandedSummary:GetText():find("unknown purchase quantity", 1, true))
 panel.source.scripts.OnClick(); VIC.choiceMenu.rows[1].scripts.OnClick()
 assert(panel.filters.source == nil)
 panel.selected = 20; panel.tab = "items"; VIC:RefreshBrowser()
-assert(panel.details[1].offer:GetText():find("Price unavailable", 1, true))
+assert(panel.details[1].offer:GetText():find("Quote unavailable", 1, true))
+panel.details[1].info.scripts.OnClick()
+assert(panel.expandedSummary:GetText():find("for this character", 1, true))
 assert(not panel.details[1].offer:GetText():find("Classic reference", 1, true))
 panel.search:SetText("no match")
 VIC:RefreshBrowser()

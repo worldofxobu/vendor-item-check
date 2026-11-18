@@ -112,6 +112,11 @@ recorded stock and prices are not live availability. Forever records expire afte
 30 days, and its browser initially fills from merchants you visit while bundled
 coverage is empty. Classic has no personal merchant journal.
 
+On Forever, **Price unverified** means the bundled source reported an amount with
+unknown purchase quantity and pricing context. With learning enabled, opening the
+merchant can add a usable quote for your character. **Quote unavailable** means
+the browser has no verified personal quote for your character.
+
 Select **Set Waypoint** when a vendor has fresh coordinates and your client supports native waypoints. **Remove Waypoint** clears only the matching point created by Vendor Item Check. Closing the browser leaves it in place.
 
 Use **Data** in the browser or **Data & sharing** in settings to see coverage and open the status and contribution views. The tooltip toggle and merchant learning can be enabled separately.

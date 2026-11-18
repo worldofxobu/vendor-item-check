@@ -88,6 +88,16 @@ function VIC:BuildBrowserIndex(filters, ignoreZone)
     return index
 end
 
+local function MissingPrice(vendor, details)
+    if vendor.offer and vendor.offer.priceContext == "unknown" then
+        return details and "Reported price has unknown purchase quantity and pricing context" or "Price unverified"
+    end
+    if vendor.personal then
+        return details and "Verified quote unavailable for this character" or "Quote unavailable"
+    end
+    return "Price not recorded"
+end
+
 function VIC:BrowserOfferText(vendor, price)
     local parts = { vendor.source == "personal" and "Personal" or "Bundled", vendor.zone or "Location unknown" }
     if vendor.x and vendor.x > 0 and vendor.y and vendor.y > 0 then
@@ -96,9 +106,9 @@ function VIC:BrowserOfferText(vendor, price)
     local access = { A = "Alliance", H = "Horde", N = "Neutral", AH = "Both factions" }
     parts[#parts + 1] = vendor.accessObserved and "Observed access" or (access[vendor.faction] or "Access unverified")
     if vendor.quoteText then parts[#parts + 1] = vendor.quoteText .. " (observed quote)"
-    elseif vendor.alternateCost then parts[#parts + 1] = "Alternate costs; price unavailable"
+    elseif vendor.alternateCost then parts[#parts + 1] = "Alternate costs apply"
     elseif price ~= nil then parts[#parts + 1] = (self:FormatMoney(price) or "0c") .. " (Classic reference)"
-    else parts[#parts + 1] = "Price unavailable" end
+    else parts[#parts + 1] = MissingPrice(vendor, true) end
     if vendor.observedAt then
         parts[#parts + 1] = "Observed " .. (date and date("%Y-%m-%d", vendor.observedAt) or tostring(vendor.observedAt))
         if vendor.stock then parts[#parts + 1] = vendor.stock == -1 and "Stock: unlimited when observed" or ("Stock observed: " .. vendor.stock) end
@@ -111,7 +121,7 @@ local function OfferLines(self, vendor, price, inventory)
     local cost = vendor.quoteText and (vendor.quoteText .. (inventory and "" or " (observed quote)"))
         or vendor.alternateCost and "Alternate costs"
         or price and ((self:FormatMoney(price) or "0c") .. (inventory and " (ref.)" or " (Classic reference)"))
-        or "Price unavailable"
+        or MissingPrice(vendor)
     local stock = vendor.stock
     local availability = stock == -1 and "Unlimited" or stock == 0 and "Sold out" or
         type(stock) == "number" and stock > 0 and (stock .. " left") or "Stock unknown"
