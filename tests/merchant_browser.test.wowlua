@@ -88,6 +88,8 @@ end
 
 local function selectItem(panel: any)
     if panel.tab ~= "items" then mock.click(panel.itemsTab) end
+    if panel.compact and panel.selected then mock.click(panel.back) end
+    mock.waitUntil(function() return addon():BrowserItemName(trackedItem) == items[2].name end, "resolved item name")
     mock.click(panel.clearSearch)
     mock.typeText(panel.search, tostring(trackedItem))
     assert(#panel.rows == 1 and panel.rows[1].id == trackedItem, "item ID search")
@@ -105,6 +107,16 @@ end
 local function separated(first: any, second: any, reason: string)
     assert(first:GetRight() <= second:GetLeft() + 0.1 or second:GetRight() <= first:GetLeft() + 0.1 or
         first:GetTop() <= second:GetBottom() + 0.1 or second:GetTop() <= first:GetBottom() + 0.1, reason)
+end
+
+local function frontOf(label: any, surface: any)
+    local parent = label:GetParent()
+    assert(label:IsVisible() and (parent == surface or parent:GetFrameLevel() > surface:GetFrameLevel()),
+        "a browser surface covers: " .. label:GetText())
+end
+
+local function fits(label: any)
+    assert(label:GetUnboundedStringWidth() <= label:GetWidth() + 0.1, "clipped text: " .. label:GetText())
 end
 
 @test("renders the native merchant window and records its inventory")
@@ -131,10 +143,35 @@ local function inventory()
     assert(panel.detailCount:GetText() == "Page 1 of 2", "eight items per page")
     assert(panel.details[1].row.id == trackedItem, "inventory must be sorted by name")
     assert(panel.details[2].row.id == items[3].id, "the second item is alphabetical")
+    frontOf(panel.heading, panel.detailHeader)
+    frontOf(panel.description, panel.detailHeader)
+    frontOf(panel.detailCount, panel.detailsInset)
+    local screenWidth = GetPhysicalScreenSize()
+    if screenWidth == 480 then assert(panel.compact, "the narrow viewport must use the compact layout") end
+    assert(panel:GetFrameStrata() == "DIALOG", "the default HUD should be below the browser")
+    if panel.compact then
+        assert(not panel.list[1]:IsVisible() and panel.back:IsEnabled(), "compact selection should show details with Back")
+    else
+        frontOf(panel.count, panel.resultsInset)
+        assert(panel.count:GetText() == "1 vendor", "the count should agree with the filtered results")
+    end
+    separated(panel.heading, panel.track, "vendor heading overlaps the waypoint button")
+    separated(panel.description, panel.track, "vendor description overlaps the waypoint button")
     separated(panel.details[1], panel.details[2], "inventory cards overlap")
     separated(panel.detailSearch, panel.stock, "inventory search overlaps stock filter")
+    assert(panel.details[1].offer:GetText():find(" / 2", 1, true), "batch price is missing")
+    assert(panel.details[1].location:GetText() == "3 left · Stack 2", "stock and stack size are missing")
+    separated(panel.details[1].caption, panel.details[1].offer, "inventory caption overlaps price")
+    separated(panel.details[1].location, panel.details[1].offer, "inventory stock overlaps price")
+    fits(panel.details[1].offer)
+    fits(panel.details[1].location)
     mock.click(panel.next)
     assert(panel.detailCount:GetText() == "Page 2 of 2" and panel.details[3].row.id == items[1].id, "last inventory page")
+    fits(panel.details[2].offer)
+    fits(panel.details[2].location)
+    mock.hover(panel.details[2])
+    assert(hasLine(mock.tooltipLines(), items[11].name), "hover must expose the full long item name")
+    mock.hover(nil)
     mock.click(panel.previous)
     choose(panel.stock, "Sold out")
     assert(panel.details[1].row.id == items[3].id and not panel.details[2].row, "sold-out stock filter")
@@ -154,7 +191,12 @@ local function inventory()
     assert(not panel.index.vendors[farID], "bundled filter included a personal merchant")
     mock.click(panel.clearFilters)
     assert(panel.search:GetText() == "Bronze" and panel.index.vendors[farID], "reset lost the search or merchant")
+    choose(panel.zone, "Current zone")
+    assert(panel.filters.zone == "@current" and panel.index.vendors[farID], "current-zone filter lost a local merchant")
+    if panel.compact and panel.selected then mock.click(panel.back) end
     mock.click(panel.list[1])
+    assert(panel.detailSearch:GetText() == "" and panel.detailSearch.placeholder:IsVisible(), "cleared inventory search lost its hint")
+    mock.hover(nil)
 end
 
 @test("renders the observed sellers and expands the item tooltip")
@@ -166,18 +208,23 @@ local function sellers()
     local panel = browser()
     selectItem(panel)
     assert(panel.detailCount:GetText() == "2 sellers", "both visits should be visible")
+    frontOf(panel.heading, panel.detailHeader)
+    fits(panel.details[1].location)
+    separated(panel.details[1].offer, panel.details[1].info, "seller offer overlaps the details button")
     mock.click(panel.details[1].info)
     assert(panel.expandedSummary:IsShown() and panel.expandedSummary:GetText():find("Observed", 1, true),
         "seller evidence did not open")
+    frontOf(panel.expandedSummary, panel.detailsInset)
+    mock.hover(panel.details[1].info)
+    assert(hasLine(mock.tooltipLines(), "Observed"), "the full offer details must be available on hover")
+    mock.hover(nil)
     local compactLines = mock.showTooltip("item", { id = trackedItem })
     assert(hasLine(compactLines, "Sold by vendor") and not hasLine(compactLines, nearName), "the tooltip should start compact")
     mock.setModifiers({ alt = true })
-    local expandedLines = mock.showTooltip("item", { id = trackedItem })
+    local expandedLines = mock.tooltipLines()
     assert(hasLine(expandedLines, nearName) and hasLine(expandedLines, farName), "Alt should show both known vendors")
     mock.setModifiers({})
-    local collapsedLines = mock.showTooltip("item", { id = trackedItem })
-    assert(not hasLine(collapsedLines, nearName), "releasing Alt should collapse the tooltip")
-    mock.hover(nil)
+    assert(not hasLine(mock.tooltipLines(), nearName), "releasing Alt should collapse the tooltip")
     GameTooltip:Hide()
 end
 
@@ -196,4 +243,15 @@ local function sorting()
     assert(panel.details[1].row.id == farID and panel.details[2].row.id == nearID,
         "disabling closest-first should order merchants by name")
     vic.settings.showClosestFirst = true
+end
+
+@test("renders the expanded native item tooltip")
+local function tooltip()
+    local vic = addon()
+    if vic.browserPanel then vic.browserPanel:Hide() end
+    farMerchant()
+    nearMerchant()
+    mock.setModifiers({ alt = true })
+    local lines = mock.showTooltip("item", { id = trackedItem })
+    assert(GameTooltip:IsVisible() and hasLine(lines, farName) and hasLine(lines, nearName), "expanded tooltip is incomplete")
 end

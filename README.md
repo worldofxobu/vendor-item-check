@@ -101,7 +101,9 @@ Item names load from the client cache; unavailable names appear as `Item #ID` an
 remain searchable by ID. They update when the client supplies the name.
 
 Prices retain their context: Classic values are historical references, and Forever
-quotes apply only to the observing character. Approximate positions, observation
+quotes apply only to the observing character. Inventory tiles show price and recorded
+stock on separate lines. Hover a tile for the full item name, or hover a seller's
+**Details** button for the complete offer information. Approximate positions, observation
 dates and recorded stock are labelled. Known inventories may be incomplete;
 recorded stock and prices are not live availability. Forever records expire after
 30 days, and its browser initially fills from merchants you visit while bundled

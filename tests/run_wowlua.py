@@ -15,6 +15,7 @@ SCREENSHOTS = {
     "merchant-window": ("renders the native merchant window", "MerchantFrame"),
     "vendor-inventory": ("renders the vendor inventory", "VendorItemCheckBrowser"),
     "item-sellers": ("renders the observed sellers", "VendorItemCheckBrowser"),
+    "expanded-tooltip": ("renders the expanded native item tooltip", "GameTooltip"),
 }
 
 
@@ -51,7 +52,7 @@ def main():
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         manifest["test"] = {"blizzard-ui": True}
         if args.compact:
-            manifest["test"]["screen"] = {"width": 600, "height": 460, "uiScale": 1.15}
+            manifest["test"]["screen"] = {"width": 480, "height": 800, "uiScale": 1.15}
         manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
         test_path = project / "tests" / TEST_FILE
         test_path.parent.mkdir()

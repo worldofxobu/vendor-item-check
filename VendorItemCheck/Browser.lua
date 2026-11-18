@@ -106,20 +106,20 @@ function VIC:BrowserOfferText(vendor, price)
     return table.concat(parts, " | ")
 end
 
-function VIC:BrowserOfferSummary(vendor, price)
-    if not vendor then return "No offer information" end
+local function OfferLines(self, vendor, price, inventory)
     local access = { A = "Alliance", H = "Horde", N = "Neutral", AH = "Both factions" }
-    local cost = vendor.quoteText and (vendor.quoteText .. " (observed quote)")
+    local cost = vendor.quoteText and (vendor.quoteText .. (inventory and "" or " (observed quote)"))
         or vendor.alternateCost and "Alternate costs"
-        or price and ((self:FormatMoney(price) or "0c") .. " (Classic reference)")
+        or price and ((self:FormatMoney(price) or "0c") .. (inventory and " (ref.)" or " (Classic reference)"))
         or "Price unavailable"
-    return (vendor.zone or "Location unknown")
-        .. (vendor.approximate and " (approximate)" or "")
+    local stock = vendor.stock
+    local availability = stock == -1 and "Unlimited" or stock == 0 and "Sold out" or
+        type(stock) == "number" and stock > 0 and (stock .. " left") or "Stock unknown"
+    if vendor.quantity and vendor.quantity > 1 then availability = availability .. " · Stack " .. vendor.quantity end
+    if inventory then return availability, cost end
+    local location = (vendor.approximate and vendor.mapID and "~" or "") .. (vendor.zone or "Location unknown")
         .. " · " .. (vendor.accessObserved and "Observed access" or access[vendor.faction] or "Access unverified")
-        .. "\n" .. cost .. (vendor.cheapest and " · CHEAPEST" or "")
-        .. (vendor.stock == -1 and " · ∞" or vendor.stock == 0 and " · Sold out" or
-            type(vendor.stock) == "number" and vendor.stock > 0 and (" · " .. vendor.stock .. " left") or " · ?")
-        .. (vendor.quantity and vendor.quantity > 1 and (" · Stack " .. vendor.quantity) or "")
+    return location, cost .. (vendor.cheapest and " · CHEAPEST" or "") .. " · " .. availability
 end
 
 local colors = {
@@ -210,11 +210,13 @@ local function Search(parent, x, y, width, action)
     box:SetAutoFocus(false)
     box:SetMaxLetters(100)
     box:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    box:SetScript("OnTextChanged", function(self)
-        if (self:GetText() or "") == "" then self.placeholder:Show() else self.placeholder:Hide() end
-        action()
-    end)
+    box:SetScript("OnTextChanged", action)
     return box
+end
+
+local function UpdateSearchHint(box, prompt)
+    box.placeholder:SetText(prompt)
+    if (box:GetText() or "") == "" then box.placeholder:Show() else box.placeholder:Hide() end
 end
 
 function VIC:RefreshBrowser(rebuild)
@@ -233,9 +235,10 @@ function VIC:RefreshBrowser(rebuild)
         panel.selected = panel.selected or rows[1].id
         panel.selectFirst = nil
     end
-    panel.count:SetText(string.format("%d %s", #rows, panel.tab))
-    panel.search.placeholder:SetText(panel.tab == "items" and "Search item name or ID" or "Search vendor name or NPC ID")
-    panel.detailSearch.placeholder:SetText(panel.tab == "items" and "Search sellers" or "Search inventory")
+    local rowType = #rows == 1 and (panel.tab == "items" and "item" or "vendor") or panel.tab
+    panel.count:SetText(string.format("%d %s", #rows, rowType))
+    UpdateSearchHint(panel.search, panel.tab == "items" and "Search item name or ID" or "Search vendor name or NPC ID")
+    UpdateSearchHint(panel.detailSearch, panel.tab == "items" and "Search sellers" or "Search inventory")
     for i, button in ipairs(panel.list) do
         local row = rows[panel.page - 1 + i]
         button.row = row
@@ -346,11 +349,10 @@ function VIC:RefreshBrowser(rebuild)
                 local color = ok and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality]
                 if color and color.hex then caption = color.hex .. caption .. "|r" end
             end
-            local summary = self:BrowserOfferSummary(row.vendor, row.price)
-            local location, offer = summary:match("^(.-)\n(.*)$")
+            local location, offer = OfferLines(self, row.vendor, row.price, inventory)
             button.caption:SetText(caption)
-            button.location:SetText(inventory and "" or (location or ""))
-            button.offer:SetText(offer or summary)
+            button.location:SetText(location)
+            button.offer:SetText(offer)
             if button.icon then
                 if inventory then
                     local api = C_Item and C_Item.GetItemIconByID or GetItemIcon
@@ -449,6 +451,7 @@ function VIC:OpenBrowser()
         self.browserPanel = panel
         panel:SetSize(570, 420)
         panel:SetPoint("CENTER")
+        if panel.SetFrameStrata then panel:SetFrameStrata("DIALOG") end
         if panel.SetClampedToScreen then panel:SetClampedToScreen(true) end
         panel:SetMovable(true); panel:EnableMouse(true); panel:RegisterForDrag("LeftButton")
         panel:SetScript("OnDragStart", panel.StartMoving)
@@ -470,6 +473,10 @@ function VIC:OpenBrowser()
         panel.resultsInset = self:CreateBrowserSurface(panel, 8, -109, 182, 305, "inset", "brass")
         panel.detailsInset = self:CreateBrowserSurface(panel, 196, -109, 368, 305, "inset", "brass")
         panel.detailHeader = self:CreateBrowserSurface(panel.detailsInset, 5, -4, 358, 44, "header")
+        -- Keep inset text in front of the surfaces while anchoring it to the browser.
+        local detailText = CreateFrame("Frame", nil, panel.detailsInset)
+        detailText:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
+        detailText:SetSize(570, 420)
         panel.history = {}; panel.tabStates = {}
         panel.selectFirst = true
         panel.filters = {}; panel.tab = "items"; panel.page = 1; panel.detailPage = 1
@@ -555,15 +562,15 @@ function VIC:OpenBrowser()
         panel.clearSearch = Button(panel, "X", 310, -120, 30, function()
             panel.search:SetText(""); panel.page = 1; Refresh()
         end)
-        panel.heading = Label(panel, "", 365, -76, 510)
-        panel.description = Label(panel, "", 365, -99, 510)
+        panel.heading = Label(detailText, "", 365, -76, 510)
+        panel.description = Label(detailText, "", 365, -99, 510)
         SingleLine(panel.heading)
         if panel.description.SetMaxLines then panel.description:SetMaxLines(2) end
-        panel.expandedSummary = Label(panel, "", 200, -391, 350)
-        if panel.expandedSummary.SetMaxLines then panel.expandedSummary:SetMaxLines(2) end
+        panel.expandedSummary = Label(detailText, "", 200, -391, 350)
+        if panel.expandedSummary.SetMaxLines then panel.expandedSummary:SetMaxLines(3) end
         panel.expandedSummary:Hide()
-        if panel.CreateTexture then
-            panel.itemIcon = panel:CreateTexture(nil, "ARTWORK")
+        if detailText.CreateTexture then
+            panel.itemIcon = detailText:CreateTexture(nil, "ARTWORK")
             panel.itemIcon:SetSize(35, 35)
         end
         panel.detailSearch = Search(panel, 372, -155, 490, function() panel.detailPage = 1; Refresh() end)
@@ -666,6 +673,14 @@ function VIC:OpenBrowser()
                 else panel.expanded = button.row end
                 Refresh()
             end)
+            button.info:SetScript("OnEnter", function(owner)
+                if button.row and GameTooltip and GameTooltip.SetText then
+                    GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+                    GameTooltip:SetText(self:BrowserOfferText(button.row.vendor, button.row.price), 1, 1, 1, 1, true)
+                    GameTooltip:Show()
+                end
+            end)
+            button.info:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
             button:SetScript("OnClick", function(b)
                 if not b.row then return end
                 local id = b.row.id
@@ -685,8 +700,8 @@ function VIC:OpenBrowser()
             button:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
             panel.details[i] = button
         end
-        panel.count = Label(panel, "", 22, -535, 320)
-        panel.detailCount = Label(panel, "", 370, -535, 500)
+        panel.count = Label(panel.resultsInset, "", 8, -7, 166)
+        panel.detailCount = Label(detailText, "", 370, -535, 500)
         local function Wheel(frame, detail)
             if not frame.EnableMouseWheel then return end
             frame:EnableMouseWheel(true)
@@ -749,7 +764,6 @@ function VIC:OpenBrowser()
             Move(self.clearFilters, 220, -38, 84)
             Move(self.search, 12, -71, 237)
             Move(self.clearSearch, 248, -71)
-            Move(self.count, 16, -116, 166)
             local left = self.compact and 12 or 197
             local paneWidth = 558 - left
             Move(self.detailsInset, left - 1, -109)
@@ -766,11 +780,11 @@ function VIC:OpenBrowser()
                 Move(self.heading, 126, -193, 320)
                 Move(self.description, 126, -216, 320)
             else
-                Move(self.heading, left + 49, -120, paneWidth - 183)
-                Move(self.description, left + 49, -137, paneWidth - 57)
+                Move(self.heading, left + 49, -118, paneWidth - 57)
+                Move(self.description, left + 49, -134, paneWidth - (inventory and 183 or 57))
             end
             if self.itemIcon then Move(self.itemIcon, left + 8, -116) end
-            Move(self.track, 430, -122, 126)
+            Move(self.track, 430, -130, 126)
             Move(self.detailSearch, left + (inventory and 6 or 208), -157, paneWidth - (inventory and 119 or 214))
             Move(self.continent, left + 2, -155)
             Move(self.sellerZone, left + 104, -155)
@@ -801,9 +815,9 @@ function VIC:OpenBrowser()
                 row:SetSize(slotWidth, 46)
                 local textLeft = inventory and 42 or 7
                 local textWidth = inventory and slotWidth - 48 or slotWidth - 150
-                Move(row.caption, textLeft, inventory and -8 or -5, textWidth)
-                Move(row.location, textLeft, -18, textWidth)
-                Move(row.offer, textLeft, inventory and -24 or -31, slotWidth - textLeft - 6)
+                Move(row.caption, textLeft, inventory and -4 or -5, textWidth)
+                Move(row.location, textLeft, inventory and -31 or -18, textWidth)
+                Move(row.offer, textLeft, inventory and -17 or -31, slotWidth - textLeft - 6)
                 Move(row.track, 416, y - 7, 67)
                 Move(row.info, 487, y - 7, 59)
             end
@@ -814,7 +828,7 @@ function VIC:OpenBrowser()
             Move(self.detailsScroll, 556, -188)
             self.detailsScroll:SetSize(6, 190)
             Visible(self.detailsScroll, detail and not inventory and (self.detailMax or 1) > 1)
-            Move(self.expandedSummary, left + 7, -390, paneWidth - 14)
+            Move(self.expandedSummary, left + 7, -386, paneWidth - 14)
             Visible(self.heading, detail or not self.compact or not self.rows or #self.rows == 0)
             Visible(self.description, detail or not self.compact or not self.rows or #self.rows == 0)
             Visible(self.detailCount, detail and not self.expanded)
