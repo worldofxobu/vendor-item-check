@@ -222,13 +222,12 @@ local testTip = CreateFrame("GameTooltip", "TestGameTooltip")
 isAltDown = false
 testTip:SetHyperlink("item:159:0:0:0")
 assert(testTip:NumLines() > 0, "Tooltip should have lines")
-local foundCompact = false
+local foundCompact, foundHint = false, false
 for _, line in ipairs(testTip.lines) do
-    if line.left and line.left:find("Sold by vendor") and line.left:find("Hold ALT") then
-        foundCompact = true
-    end
+    foundCompact = foundCompact or line.left and line.left:find("Sold by vendor")
+    foundHint = foundHint or line.left and line.left:find("Hold ALT")
 end
-assert(foundCompact, "Compact view should display 'Sold by vendor' with 'Hold ALT'")
+assert(foundCompact and foundHint, "Compact view should display 'Sold by vendor' and the separate hold hint")
 print("PASS: Compact tooltip rendering verified (Hold Alt hint shown)")
 
 -- Simulate pressing Alt (Dynamic expansion)

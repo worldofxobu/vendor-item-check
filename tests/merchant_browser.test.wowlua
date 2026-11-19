@@ -63,12 +63,25 @@ local function browser(): any
     return panel
 end
 
+local function freshBrowser(): any
+    local vic = addon()
+    local panel = vic.browserPanel
+    if panel then
+        panel:Hide()
+        panel.tab, panel.filters, panel.tabStates, panel.history = "items", {}, {}, {}
+        panel.selected, panel.expanded, panel.index = nil, nil, nil
+        panel.search:SetText("")
+        panel.detailSearch:SetText("")
+    end
+    return browser()
+end
+
 local function choose(button: any, label: string)
     mock.click(button)
-    local menu = addon().choiceMenu
+    local menu = addon().browserPanel.menu
     assert(menu:IsVisible(), "the menu did not open")
     for _, row in ipairs(menu.rows) do
-        if row:IsVisible() and row:GetText() == label then
+        if row:IsVisible() and row.entryLabel:GetText():find(label, 1, true) then
             mock.click(row)
             assert(not menu:IsShown(), "the menu did not close")
             return
@@ -79,7 +92,8 @@ end
 
 local function selectVendor(panel: any)
     if panel.tab ~= "vendors" then mock.click(panel.vendorsTab) end
-    mock.click(panel.clearSearch)
+    if panel.compact and panel.selected then mock.click(panel.back) end
+    if panel.clearSearch:IsVisible() then mock.click(panel.clearSearch) end
     mock.typeText(panel.search, "Bronze")
     assert(#panel.rows == 1 and panel.rows[1].id == farID, "vendor name search")
     mock.click(panel.list[1])
@@ -90,7 +104,7 @@ local function selectItem(panel: any)
     if panel.tab ~= "items" then mock.click(panel.itemsTab) end
     if panel.compact and panel.selected then mock.click(panel.back) end
     mock.waitUntil(function() return addon():BrowserItemName(trackedItem) == items[2].name end, "resolved item name")
-    mock.click(panel.clearSearch)
+    if panel.clearSearch:IsVisible() then mock.click(panel.clearSearch) end
     mock.typeText(panel.search, tostring(trackedItem))
     assert(#panel.rows == 1 and panel.rows[1].id == trackedItem, "item ID search")
     mock.click(panel.list[1])
@@ -160,16 +174,17 @@ local function inventory()
     separated(panel.details[1], panel.details[2], "inventory cards overlap")
     separated(panel.detailSearch, panel.stock, "inventory search overlaps stock filter")
     assert(panel.details[1].offer:GetText():find(" / 2", 1, true), "batch price is missing")
-    assert(panel.details[1].location:GetText() == "3 left · Stack 2", "stock and stack size are missing")
+    assert(panel.details[1].stock:GetText() == "3 left" and panel.details[1].row.vendor.quantity == 2, "stock and stack size are missing")
     separated(panel.details[1].caption, panel.details[1].offer, "inventory caption overlaps price")
-    separated(panel.details[1].location, panel.details[1].offer, "inventory stock overlaps price")
+    separated(panel.details[1].stock, panel.details[1].offer, "inventory stock overlaps price")
     fits(panel.details[1].offer)
-    fits(panel.details[1].location)
+    fits(panel.details[1].stock)
     mock.click(panel.next)
-    assert(panel.detailCount:GetText() == "Page 2 of 2" and panel.details[3].row.id == items[1].id, "last inventory page")
-    fits(panel.details[2].offer)
-    fits(panel.details[2].location)
-    mock.hover(panel.details[2])
+    local last = panel.details[panel.waypointBanner:IsShown() and 5 or 3]
+    assert(panel.detailCount:GetText() == "Page 2 of 2" and last.row.id == items[1].id, "last inventory page")
+    fits(last.offer)
+    fits(last.stock)
+    mock.hover(panel.details[panel.waypointBanner:IsShown() and 4 or 2])
     assert(hasLine(mock.tooltipLines(), items[11].name), "hover must expose the full long item name")
     mock.hover(nil)
     mock.click(panel.previous)
@@ -187,7 +202,8 @@ local function inventory()
     mock.click(panel.back)
     assert(panel.tab == "vendors" and panel.selected == farID and panel.detailSearch:GetText() == "Arcane",
         "Back restores inventory selection and search")
-    choose(panel.source, "Bundled data")
+    mock.click(panel.source)
+    mock.click(panel.advanced.sources[3])
     assert(not panel.index.vendors[farID], "bundled filter included a personal merchant")
     mock.click(panel.clearFilters)
     assert(panel.search:GetText() == "Bronze" and panel.index.vendors[farID], "reset lost the search or merchant")
@@ -207,15 +223,15 @@ local function sellers()
     nearMerchant()
     local panel = browser()
     selectItem(panel)
-    assert(panel.detailCount:GetText() == "2 sellers", "both visits should be visible")
+    assert(panel.detailCount:GetText() == "SELLERS  2", "both visits should be visible")
     frontOf(panel.heading, panel.detailHeader)
     fits(panel.details[1].location)
-    separated(panel.details[1].offer, panel.details[1].info, "seller offer overlaps the details button")
-    mock.click(panel.details[1].info)
-    assert(panel.expandedSummary:IsShown() and panel.expandedSummary:GetText():find("Observed", 1, true),
-        "seller evidence did not open")
-    frontOf(panel.expandedSummary, panel.detailsInset)
-    mock.hover(panel.details[1].info)
+    separated(panel.details[1].offer, panel.details[1].stock, "seller price overlaps stock")
+    assert(not panel.details[1].info and panel.details[1].summary:IsShown() and panel.details[1].vendorLink:IsShown(),
+        "seller must expand in place and give a Vendor link")
+    mock.click(panel.details[2])
+    assert(not panel.details[1].summary:IsShown() and panel.details[2].summary:IsShown(), "only the selected seller should expand")
+    mock.hover(panel.details[2])
     assert(hasLine(mock.tooltipLines(), "Observed"), "the full offer details must be available on hover")
     mock.hover(nil)
     local compactLines = mock.showTooltip("item", { id = trackedItem })
@@ -258,4 +274,163 @@ local function tooltip()
         assert(GameTooltip:GetWidth() <= UIParent:GetWidth(), "vendor lines make the tooltip wider than the viewport")
         assert(hasLine(lines, "Elwynn Forest") and hasLine(lines, " / 2"), "narrow tooltip lost the location or batch quote")
     end
+end
+
+@test("renders the searchable zone picker")
+local function zonePicker()
+    farMerchant()
+    mock.closeMerchant()
+    local panel = browser()
+    selectItem(panel)
+    mock.click(panel.zone)
+    assert(panel.menu.title:GetText() == "FILTER BY ZONE")
+    mock.typeText(panel.menu.search, "Elwynn")
+    assert(panel.menu.rows[1].entryLabel:GetText() == "Elwynn Forest" and not panel.menu.rows[2]:IsVisible())
+    panel.menu:Hide()
+    mock.click(panel.zone)
+end
+
+@test("renders the advanced browser filters")
+local function advancedFilters()
+    farMerchant()
+    mock.closeMerchant()
+    local panel = browser()
+    selectItem(panel)
+    mock.click(panel.source)
+    assert(panel.advanced:IsVisible() and panel.clearFilters:IsVisible())
+    mock.click(panel.advanced.access)
+    assert(panel.filters.allFactions, "the access checkbox did not show inaccessible vendors")
+    mock.click(panel.advanced.sources[2])
+    assert(panel.filters.source == "personal", "the personal source choice did not apply")
+    mock.click(panel.clearFilters)
+    assert(not panel.filters.allFactions and not panel.filters.source and panel.search:GetText() == tostring(trackedItem))
+end
+
+@test("renders no results and zone recovery")
+local function noResults()
+    farMerchant()
+    mock.closeMerchant()
+    local panel = freshBrowser()
+    selectItem(panel)
+    mock.moveTo({ mapID = 1453, zone = "Stormwind City", x = 0.64, y = 0.72 })
+    choose(panel.zone, "Current zone")
+    assert(panel.empty:IsVisible() and panel.allZones:IsVisible() and not panel.detailsInset:IsVisible())
+    assert(tonumber(panel.vendorsTab.count:GetText()) > 0, "filtering Items must preserve the Vendors tab count")
+    mock.click(panel.allZones)
+    assert(#panel.rows == 1 and panel.search:GetText() == tostring(trackedItem) and not panel.filters.zone)
+    choose(panel.zone, "Current zone")
+end
+
+@test("renders an unnamed item searchable by ID")
+local function unnamedItem()
+    local vic = addon()
+    local id = 900199
+    local guid = UnitGUID("player")
+    assert(guid and not issecretvalue(guid))
+    vic.personalIndex = { [id] = { [farID] = { [guid] = {
+        observedAt = vic:ObservationNow(), vendorName = farName,
+    } } } }
+    local panel = freshBrowser()
+    mock.typeText(panel.search, tostring(id))
+    mock.click(panel.list[1])
+    assert(panel.unnamed:IsVisible() and panel.heading:GetText() == "Item #" .. id)
+    assert(panel.details[1].vendorLink:IsVisible(), "an unresolved name must not prevent browsing vendors")
+end
+
+@test("renders the waypoint set state")
+local function waypointSet()
+    farMerchant()
+    mock.closeMerchant()
+    local panel = freshBrowser()
+    selectVendor(panel)
+    mock.waitUntil(function() return addon():BrowserItemName(trackedItem) == items[2].name end, "item artwork")
+    local map: any = C_Map
+    local point: any
+    local getPoint, setPoint = map.GetUserWaypoint, map.SetUserWaypoint
+    map.GetUserWaypoint = function() return point end
+    map.SetUserWaypoint = function(value: any) point = value end
+    mock.click(panel.track)
+    map.GetUserWaypoint, map.SetUserWaypoint = getPoint, setPoint
+    assert(panel.track:GetText() == "Remove Waypoint" and panel.waypointBanner:IsVisible())
+    assert(panel.waypointStatus:GetText():find("Waypoint set", 1, true))
+end
+
+@test("renders the waypoint unavailable state")
+local function waypointUnavailable()
+    local vic = addon()
+    local now = vic:ObservationNow()
+    local id = 900003
+    vic.Vendors[id] = { "Fixture Expired Merchant", "Elwynn Forest", "?", 22, 35,
+        mapID = 1429, nameExpires = now + 100, locationExpires = now - 1 }
+    for _, item in ipairs(items) do
+        mock.defineItem(item.id, { name = item.name, icon = 134712, maxStack = 200, quality = 1 })
+        vic.Items[item.id] = { v = { id }, offers = { [id] = { expires = now + 100, reporters = 3 } } }
+    end
+    local panel = freshBrowser()
+    mock.click(panel.vendorsTab)
+    mock.typeText(panel.search, tostring(id))
+    mock.click(panel.list[1])
+    mock.waitUntil(function() return vic:BrowserItemName(trackedItem) == items[2].name end, "item artwork")
+    assert(not panel.track:IsEnabled() and panel.waypointBanner:IsVisible())
+    assert(panel.waypointStatus:GetText():find("Location expired", 1, true))
+    vic.Vendors[id] = nil
+    for _, item in ipairs(items) do vic.Items[item.id] = nil end
+end
+
+@test("renders the data overview without personal observations")
+local function dataEmpty()
+    local vic = addon()
+    local observations, index = vic.observations, vic.personalIndex
+    vic.observations, vic.personalIndex = { schema = 1, characters = {} }, {}
+    mock.click(freshBrowser().data)
+    local data = vic.exportPanel
+    assert(data.views.overview:IsVisible() and data.metrics[3].value:GetText() == "0")
+    assert(not data.contribute:IsEnabled() and data.contribute:GetText() == "Nothing to export")
+    vic.observations, vic.personalIndex = observations, index
+end
+
+@test("renders Vendor Item Check in native AddOns settings")
+local function options()
+    local vic = addon()
+    mock.slash("/vic settings")
+    assert(vic.optionsPanel:IsVisible() and vic.optionsPreview:IsVisible())
+    assert(vic.optionsPreview.lines[1].left:GetText():find("Sold by vendors", 1, true))
+end
+
+@test("renders the contextual settings hint")
+local function settingsHelp()
+    mock.slash("/vic settings")
+    local help: any = _G["VICMaximumVendorsHelp"]
+    mock.waitUntil(function() return help:IsVisible() and help:GetLeft() ~= nil end, "visible settings help")
+    mock.hover(help)
+    local hint = addon().settingsHint
+    assert(hint:IsVisible() and hint.title:GetText() == "Maximum vendors")
+    assert(hint.body:GetText():find("Range", 1, true))
+end
+
+@test("renders the collapsed native item tooltip")
+local function tooltipCollapsed()
+    local settings: any = _G["SettingsPanel"]
+    if settings then settings:Hide() end
+    if addon().browserPanel then addon().browserPanel:Hide() end
+    farMerchant()
+    mock.closeMerchant()
+    mock.setModifiers({})
+    local lines = mock.showTooltip("item", { id = trackedItem })
+    assert(hasLine(lines, "Sold by vendor") and hasLine(lines, "Hold ALT"))
+end
+
+@test("renders the minimal expanded native item tooltip")
+local function tooltipMinimal()
+    local settings: any = _G["SettingsPanel"]
+    if settings then settings:Hide() end
+    if addon().browserPanel then addon().browserPanel:Hide() end
+    farMerchant()
+    mock.closeMerchant()
+    local vic = addon()
+    vic.settings.showCoordinates, vic.settings.showPrice = false, false
+    mock.setModifiers({ alt = true })
+    local lines = mock.showTooltip("item", { id = trackedItem })
+    assert(hasLine(lines, "Sold by vendors") and hasLine(lines, farName) and hasLine(lines, "Elwynn Forest"))
+    assert(not hasLine(lines, "approx.") and not hasLine(lines, " / 2"))
 end

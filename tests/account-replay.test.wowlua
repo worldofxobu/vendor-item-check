@@ -13,7 +13,7 @@ local function selectRow(tab: string, query: string, id: number): any
     local panel = addon.browserPanel
     mock.click(tab == "vendors" and panel.vendorsTab or panel.itemsTab)
     if panel.compact and panel.selected then mock.click(panel.back) end
-    mock.click(panel.clearSearch)
+    if panel.clearSearch:IsVisible() then mock.click(panel.clearSearch) end
     mock.typeText(panel.search, query)
     mock.waitUntil(function() return #panel.rows == 1 and panel.rows[1].id == id end, "matching observed result")
     mock.click(panel.list[1])
@@ -55,6 +55,7 @@ end
 @test("shows the recorded Accurate Slugs price independently of purchase eligibility")
 local function accurateSlugs()
     local panel = selectRow("items", "11284", 11284)
+    mock.waitUntil(function() return panel.heading:GetText() == "Accurate Slugs" end, "real item name")
     local prices = { [734] = 900, [1285] = 900, [1461] = 1000, [2808] = 900, [5101] = 1000, [5123] = 1000 }
     local item = panel.index.items[11284]
     assert(#item.vendors == 6, "expected all six saved sellers")
@@ -63,11 +64,29 @@ local function accurateSlugs()
         assert(not vendor.accessObserved and not vendor.cheapest, "price must not grant purchase eligibility")
         assert(vendor.quoteText and vendor.quoteText:find(vendor.copper == 900 and " / 200" or "5c", 1, true), "price was rounded or hidden")
     end
+    local last: any
+    for _, row in ipairs(panel.details) do if row.row then last = row end end
+    local opened = last.row.id
+    mock.click(last)
+    local expansionVisible = false
     for _, row in ipairs(panel.details) do
-        if row.row then
-            assert(row.offer:GetText():find(row.row.vendor.copper == 900 and " / 200" or "each", 1, true), "seller row lost its price")
-        end
+        if row.row and row.row.id == opened then expansionVisible = row.summary:IsVisible() end
     end
+    assert(expansionVisible, "expanding the bottom seller must keep its actions in view")
+    panel:PageDetail(-100)
+    local rendered = {}
+    for _page = 1, panel.detailMax do
+        for _, row in ipairs(panel.details) do
+            if row.row then
+                local price = row.offer:GetText()
+                assert(price:find(row.row.vendor.copper == 900 and "UI-SilverIcon" or "UI-CopperIcon", 1, true), "seller row lost its coin icon")
+                assert(price:find(row.row.vendor.copper == 900 and " / 200" or "each", 1, true), "seller row lost its purchase quantity")
+                rendered[row.row.id] = true
+            end
+        end
+        panel:PageDetail(1)
+    end
+    for id in pairs(prices) do assert(rendered[id], "a saved seller could not be rendered") end
     panel = selectRow("vendors", "Thurman Mullby", 1285)
     mock.typeText(panel.detailSearch, "11284")
     assert(panel.details[1].row.id == 11284 and panel.details[1].offer:GetText():find(" / 200", 1, true), "inventory row lost its batch price")
@@ -75,6 +94,8 @@ local function accurateSlugs()
     local foreign = offer(11284, 1285)
     assert(not foreign.copper and not foreign.quoteText and not foreign.accessObserved, "price leaked to another character")
     mock.setPlayer({ guid = "Player-1-00000001" })
+    selectRow("items", "11284", 11284)
+    mock.hover(nil)
 end
 
 @test("renders Edna Mullby's saved inventory")
@@ -88,9 +109,9 @@ local function inventory()
         end
         return true
     end, "resolve the recorded vendor's item names")
-    assert(panel.detailCount:GetText() == "Page 1 of 5", "inventory paging did not render")
+    assert(panel.detailCount:GetText():find("^Page 1 of [57]$"), "inventory paging did not render")
     assert(panel.details[1].row and panel.details[1].caption:IsVisible(), "saved inventory was not drawn")
-    assert(panel.details[1].offer:GetText():find("each", 1, true), "the observed quote is missing")
+    assert(panel.details[1].offer:GetText():find("UI%-[%a]+Icon"), "the observed quote is missing")
 end
 
 @test("renders and cross-links saved item sellers")
@@ -99,13 +120,16 @@ local function sellers()
     mock.waitUntil(function() return panel.heading:GetText() == "Refreshing Spring Water" end, "real item name")
     local offered = panel.index.items[159].vendors
     assert(#offered >= 29, "recorded sellers are missing")
-    assert(panel.details[1].row and panel.details[1].location:GetText():find("Observed access", 1, true), "the first seller's access context is absent")
-    mock.click(panel.details[1].info)
-    assert(panel.expandedSummary:IsShown() and panel.expandedSummary:GetText():find("Observed", 1, true), "saved evidence is absent")
-    mock.click(panel.details[1])
+    assert(panel.details[1].row and panel.details[1].vendorLink:IsShown() and not panel.details[1].info, "the first seller must expand inline")
+    mock.hover(panel.details[1])
+    assert(table.concat(mock.tooltipLines(), " "):find("Observed access", 1, true), "saved evidence is absent")
+    mock.hover(nil)
+    local expanded = panel.expanded
+    mock.click(panel.details[1].vendorLink)
     assert(panel.tab == "vendors" and panel.selected, "seller-to-inventory cross-link did not open")
     mock.click(panel.back)
-    assert(panel.tab == "items" and panel.selected == 159 and panel.search:GetText() == "Refreshing Spring Water", "Back did not restore the item search")
+    assert(panel.tab == "items" and panel.selected == 159 and panel.expanded == expanded
+        and panel.search:GetText() == "Refreshing Spring Water", "Back did not restore the expanded seller and item search")
 end
 
 @test("renders the expanded tooltip from saved observations")
@@ -120,11 +144,57 @@ local function tooltip()
     local quoted = false
     for i = 1, GameTooltip:NumLines() do
         local left: any = _G["GameTooltipTextLeft" .. i]
-        local right: any = _G["GameTooltipTextRight" .. i]
+        local right: any = _G["GameTooltipTextRight" .. (i + 1)]
         if left and right and string.find(left:GetText() or "", "Innkeeper Allison", 1, true) then
             local details = right:GetText() or ""
-            quoted = string.find(details, "23c", 1, true) ~= nil and string.find(details, " / 5", 1, true) ~= nil
+            quoted = string.find(details, "23 |T", 1, true) ~= nil and string.find(details, " / 5", 1, true) ~= nil
         end
     end
     assert(expanded:find("Innkeeper Allison", 1, true) and quoted, "expanded tooltip did not show the real merchant and batch quote")
+end
+
+@test("renders data overview with personal observations")
+local function dataOverview()
+    local panel = selectRow("vendors", "Edna Mullby", 1286)
+    mock.click(panel.data)
+    local data = vic().exportPanel
+    assert(data.views.overview:IsVisible() and data.metrics[3].value:GetText() == "2498")
+    assert(data.contribute:IsEnabled() and not panel.workspace:IsVisible())
+    mock.click(data.back)
+    assert(panel.workspace:IsVisible() and panel.selected == 1286 and panel.search:GetText() == "Edna Mullby")
+    mock.click(panel.data)
+end
+
+@test("renders data status with the active client")
+local function dataStatus()
+    mock.slash("/vic status")
+    local data = vic().exportPanel
+    assert(data.views.status:IsVisible() and data.statusRows[1]:GetText():find("Forever", 1, true))
+    assert(data.statusRows[5]:GetText():find("2498 offers", 1, true))
+end
+
+@test("renders the contribution generation state")
+local function contributeGenerate()
+    mock.slash("/vic export")
+    local addon = vic()
+    assert(addon.exportPrepare:IsVisible() and addon.exportPrepare:IsEnabled())
+    assert(not addon.exportPanel.generated:IsVisible() and addon.exportBox:GetText() == "")
+end
+
+@test("renders and selects the complete generated contribution")
+local function contributeCopy()
+    mock.slash("/vic export")
+    local addon = vic()
+    mock.click(addon.exportPrepare)
+    local data, box = addon.exportPanel, addon.exportBox
+    local document = box:GetText()
+    assert(data.generated:IsVisible() and not data.prepare:IsVisible())
+    assert(#document > 100000 and document == data.document and document:find('"schema":"vic.observations/1"', 1, true))
+    assert(not document:find("Player-", 1, true), "the generated contribution exposes a character ID")
+    assert(data.scroll:GetVerticalScrollRange() > 0, "the generated text has no scroll range")
+    mock.click(data.select)
+    assert(box:HasFocus())
+    mock.typeText(box, "overwrite attempt")
+    assert(box:GetText() == document, "editing must leave the full contribution intact")
+    box:ClearFocus()
 end

@@ -14,7 +14,7 @@ Vendor Item Check is a lightweight, zero-dependency addon for **World of Warcraf
 
 ## Forever data coverage
 
-On Forever, the addon automatically learns from merchants you visit. Open a merchant window, then hover an observed item anywhere to see who sold it. Hold your modifier for locations and qualified prices. Open seller details in the browser for observation dates. Recording stays local and is enabled by default; turn it off with `/vic recording off` or **Learn from merchants I visit** in settings.
+On Forever, the addon automatically learns from merchants you visit. Open a merchant window, then hover an observed item anywhere to see who sold it. Hold your modifier for locations and qualified prices. Hover a seller row in the browser for its observation date. Recording stays local and is enabled by default. Turn it off with `/vic recording off` or **Learn from merchants I visit** in settings.
 
 Your own observations are usable immediately and expire after 30 days. A recorded coin price can appear even when the merchant marked the item as unpurchasable. Prices and observed access apply only to the observing character and reflect the merchant visit. Non-integral per-item copper prices are shown as an exact batch cost. Offers with alternate or unknown costs are excluded from coin-price comparisons.
 
@@ -67,15 +67,17 @@ A single download targets both clients:
 - Hover over any item (in your bags, character sheet, quest rewards, or Auction House).
 - If the selected dataset has a vendor record, the tooltip shows the following (Classic Era example):
   ```text
-    Sold by vendor: 10s  (Hold ALT for locations)
+  Sold by vendor: 10 silver (reference)
+  Hold ALT for locations
   ```
 - Press and hold **Alt** while looking at the tooltip:
   ```text
-  Sold by vendors (closest first) - 10s
-    Corina Steele - Elwynn Forest (41.5, 65.9)
-    Brog Hamfist - Elwynn Forest (44.0, 65.9)
-    Kurran Steele - Elwynn Forest (41.4, 65.6)
-    +8 more vendors across Azeroth
+  Sold by vendors (nearest first)
+  Corina Steele
+  Elwynn Forest (41.5, 65.9)    10 silver (reference)
+  Brog Hamfist
+  Elwynn Forest (44.0, 65.9)    10 silver (reference)
+  +8 more vendors
   ```
 
 On narrow screens, the expanded tooltip shows each seller's location and price
@@ -85,54 +87,41 @@ On Forever, **LT / L2** also expands a visible item tooltip by default. Holding 
 trigger continues its normal action-bar behavior; the addon only observes it while
 a vendor item tooltip is showing. Release it to collapse, or keep holding Alt to
 stay expanded. With a supported controller connected and enabled, the default hint
-is `Hold ALT or LT for locations`.
+is `Hold ALT or LT / L2 for locations`.
 
 ## Browse items and vendors
 
-Run `/vic browse`, or click **Browse vendors and items** in settings, to open the
+Run `/vic browse`, or click **Browse** in settings, to open the
 browser. The **Items** tab searches known items by name or item ID and lists their
 sellers. The **Vendors** tab searches names or NPC IDs and shows each vendor's
-**known items**. Click a seller or inventory item to move between the two views;
-hover an item for its tooltip. Sellers are ordered by proximity when **Prioritize nearby vendors**
-is enabled, or by name when it is off. Scroll either list with the mouse wheel or drag its scrollbar.
+known items. Click a seller row to expand it, then choose **Vendor ›** to open its inventory.
+Click an inventory item to return to its sellers. Hover an inventory tile for the native item
+tooltip. **Prioritize nearby vendors** controls whether sellers are ordered by proximity or name.
 
-Filter by source (**All**, **Personal**, or **Bundled**), zone, or faction access.
-Open the zone menu to select a zone or All zones. Long menus support scrolling and Up/Down buttons. Access defaults
-to your faction plus unverified vendors; choose all factions to include known opposing
-vendors. A second search field filters the selected inventory or seller list.
+Open the zone picker to search zones or select **Current zone** or **Any zone**.
+Use the advanced filter icon to choose **All records**, **Personal**, or **Bundled**,
+show only verified discounts, or include known inaccessible vendors. By default,
+the browser shows friendly, neutral, and unverified vendors. The selected item or
+vendor has its own search field. Clear either search independently.
 Item names load from the client cache; unavailable names appear as `Item #ID` and
 remain searchable by ID. They update when the client supplies the name.
 
-Prices retain their context: Classic values are historical references, and Forever
-quotes apply only to the observing character. Inventory tiles show price and recorded
-stock on separate lines. Hover a tile for the full item name, or hover a seller's
-**Details** button for the complete offer information. Approximate positions, observation
-dates and recorded stock are labelled. Known inventories may be incomplete;
-recorded stock and prices are not live availability. Forever records expire after
-30 days, and its browser initially fills from merchants you visit while bundled
-coverage is empty. Classic has no personal merchant journal.
-
-On Forever, **Price unverified** means the bundled source reported an amount with
-unknown purchase quantity and pricing context. With learning enabled, opening the
-merchant can add a usable quote for your character. **Quote unavailable** means
-the browser has no verified personal quote for your character.
+Prices and stock have separate fields. Stock shows a limited count, **∞** for unlimited,
+**Sold out**, or **?** when unknown. Hover a seller row for the observation date,
+access, approximate coordinates, and purchase quantity. Classic Era coin amounts are
+reference prices. Forever shows your character's recorded coin prices and uses a dash
+when a price cannot be verified. Open the merchant with learning enabled to record a price
+for your character. Prices and stock reflect past observations, and Forever personal
+observations expire after 30 days.
 
 Select **Set Waypoint** when a vendor has fresh coordinates and your client supports native waypoints. **Remove Waypoint** clears only the matching point created by Vendor Item Check. Closing the browser leaves it in place.
 
 Use **Data** in the browser or **Data & sharing** in settings to see coverage and open the status and contribution views. The tooltip toggle and merchant learning can be enabled separately.
 
-Only one vendor is tracked at a time, for the current login session. **Stop
-tracking** or the panel's close button clears it; an expired location also clears
-tracking. The addon removes its waypoint only if it still matches the one it
-placed, preserving a different waypoint you set afterward. Choosing **Show on map**
-replaces the current native waypoint.
-
 The browser's **Back** button restores your previous selection, searches, filters,
 and scroll positions after following an item or vendor link. Each tab remembers
-its own browsing state during the session. **Clear filters** keeps your search.
-Seller rows provide **Track** directly; **Details** shows observation and source
-information. **Help** explains navigation and **Data details** explains coverage.
-Item icons use client information; uncached names remain searchable by ID.
+its own browsing state during the session. **Reset to default** in advanced filters
+keeps your search.
 
 On smaller screens the browser shows results and details on separate pages.
 Use **Back** to return to results. The search clear button removes the query without changing filters. The window fits the available screen and

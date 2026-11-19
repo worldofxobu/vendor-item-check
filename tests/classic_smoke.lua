@@ -77,6 +77,8 @@ function CreateFrame(frameType, name, parent, template)
     function f:GetChecked() return self.checked end
     function f:CreateFontString(name, layer, inherit)
         local fs = { text = "" }
+        function fs:Show() end
+        function fs:Hide() end
         function fs:SetText(t) self.text = t end
         function fs:GetText() return self.text end
         function fs:SetPoint() end

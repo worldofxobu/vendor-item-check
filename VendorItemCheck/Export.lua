@@ -77,136 +77,271 @@ function VIC:BuildContribution()
     table.sort(encoded)
     local header = JSON({ schema = "vic.observations/1", client = "forever", licence = "CC BY-SA 4.0",
         reporterId = self.observations.reporterId, exportedAt = now })
-    return string.sub(header, 1, -2) .. ',"records":[' .. table.concat(encoded, ",") .. "]}"
+    return string.sub(header, 1, -2) .. ',"records":[\n' .. table.concat(encoded, ",\n") .. "\n]}"
+end
+
+local function Text(parent, value, x, y, width, size, weight, color)
+    local label = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    label:SetPoint("TOPLEFT", x, -y)
+    label:SetWidth(width)
+    label:SetJustifyH("LEFT")
+    label:SetText(value)
+    return VIC:StyleBrowserText(label, size, weight, color)
+end
+
+local function Show(widget, visible)
+    if visible then widget:Show() else widget:Hide() end
+end
+
+local function Action(parent, label, x, y, width, click, primary)
+    local button = VIC:CreateBrowserButton(parent, label, x, -y, width, click, 28,
+        primary and "selection" or "plate", primary and "brass" or "border")
+    if primary and button.GetFontString then VIC:StyleBrowserText(button:GetFontString(), 10, "medium", "gold") end
+    return button
+end
+
+local function Tag(parent, text, x, y, width, color)
+    local tag = VIC:CreateBrowserSurface(parent, x, -y, width, 21, "inset", "border")
+    local label = Text(tag, text, 0, 5, width, 9, "medium", color)
+    label:SetJustifyH("CENTER")
+    return tag
+end
+
+local function License()
+    local url = "https://creativecommons.org/licenses/by-sa/4.0/"
+    if not StaticPopupDialogs or not StaticPopup_Show then
+        VIC:Print("%s", url)
+        return
+    end
+    if not StaticPopupDialogs.VIC_CONTRIBUTION_LICENSE then
+        StaticPopupDialogs.VIC_CONTRIBUTION_LICENSE = {
+            text = "CC BY-SA 4.0 — copy the license link with Ctrl+C.",
+            button1 = CLOSE or "Close",
+            hasEditBox = true,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+            OnShow = function(popup)
+                local edit = popup.GetEditBox and popup:GetEditBox() or popup.editBox or popup.EditBox
+                if edit then edit:SetText(url); edit:SetFocus(); edit:HighlightText() end
+            end,
+        }
+    end
+    StaticPopup_Show("VIC_CONTRIBUTION_LICENSE")
 end
 
 function VIC:RefreshDataView()
     local panel = self.exportPanel
-    if not panel or not self.browserPanel.dataView then return end
-    local view = self.browserPanel.dataView
+    local view = self.browserPanel and self.browserPanel.dataView
+    if not panel or not view then return end
     local items, vendors, offers, latest = self:CountPersonalItems()
     local bundledItems, bundledVendors = self:CountIndexedItems()
     local meta = self.dataMetadata or {}
     local revision = meta.dataAsOf or "Unavailable"
+    local revisionDate = revision:match("^%d%d%d%d%-%d%d%-%d%d") or revision
     local eligible = self.client == "forever" and offers > 0
-    local heading, body
+    for name, body in pairs(panel.views) do Show(body, name == view) end
+    local crumbs = { overview = "Data & sharing", status = "Status details", contribute = "Contribute" }
+    panel.breadcrumb:SetText(crumbs[view])
+    panel.back:SetText(view == "overview" and (self.browserPanel.tab == "vendors" and "‹ Vendors" or "‹ Items") or "‹ Data")
+    panel.statusShare:SetEnabled(eligible)
     if view == "overview" then
-        heading = "Data & sharing"
-        body = offers == 0 and "No personal observations yet." or "Your locally collected vendor data and bundled directory coverage."
+        panel.overviewIntro:SetText(offers == 0 and "No personal observations yet. Visit NPC merchants with learning enabled to collect offers."
+            or "Your locally collected vendor data and bundled directory coverage.")
         panel.metrics[1].value:SetText(tostring(vendors))
         panel.metrics[2].value:SetText(tostring(items))
         panel.metrics[3].value:SetText(tostring(offers))
-        panel.directory.text:SetText(("%d vendors      %d items      Data updated: %s"):format(bundledVendors, bundledItems, revision))
+        panel.retention:SetText(offers == 0 and "Bundled items are still available to browse while your collection is empty."
+            or "Personal observations are retained for 30 days.")
+        panel.directory.text:SetText(("Vendors   |cffffd100%d|r     Items   |cffffd100%d|r     Data updated   |cffffd100%s|r")
+            :format(bundledVendors, bundledItems, revisionDate))
+        panel.shareMessage:SetText(eligible and "Export observations manually. Nothing is uploaded for you."
+            or "No eligible observations are available for export yet.")
+        panel.contribute:SetText(eligible and "Contribute data ›" or "Nothing to export")
+        panel.contribute:SetEnabled(eligible)
     elseif view == "status" then
-        local version, build, _, interface
-        if type(GetBuildInfo) == "function" then
-            local ok
-            ok, version, build, _, interface = pcall(GetBuildInfo)
-            if not ok then version = nil end
-        end
+        local ok, version, build, _, interface
+        if type(GetBuildInfo) == "function" then ok, version, build, _, interface = pcall(GetBuildInfo) end
         local recording = self.client == "forever" and self.observations and (self.settings.recordMerchants and "On" or "Off") or "Unavailable"
-        heading = "Data status"
-        body = ("Active dataset: %s\nClient build: %s\nInterface: %s\nBundled data revision: %s\nBundled inventory: %d vendors / %d items\nPersonal observations: %d offers\nMerchant learning: %s\nLast merchant learned: %s\n\nCoverage does not mean live availability.")
-            :format(meta.client or self.client or "Unavailable", version and (version .. " / " .. tostring(build)) or "Unavailable",
-                tostring(interface or "Unavailable"), revision, bundledVendors, bundledItems, offers, recording,
-                latest and (date and date("!%Y-%m-%d %H:%M UTC", latest) or tostring(latest)) or "Unavailable")
+        local values = {
+            self.client == "forever" and "WoW Forever  •  current client"
+                or self.client == "classic" and "Classic Era  •  current client" or "Unavailable",
+            ok and version and ("%s / %s · %s"):format(version, tostring(build), tostring(interface or "—")) or "Unavailable",
+            revision,
+            ("%d vendors / %d items"):format(bundledVendors, bundledItems),
+            ("%d offers · Learning %s"):format(offers, recording),
+            latest and (date and date("!%Y-%m-%d %H:%M UTC", latest) or tostring(latest)) or "—",
+        }
+        for i, value in ipairs(values) do panel.statusRows[i]:SetText(value) end
     else
-        heading = "Contribute your vendor data"
-        body = "Shared: vendor/item IDs, offers, prices, locations, times and a stable installation pseudonym.\nPrivate: character, account and realm identifiers.\nCC BY-SA 4.0 applies if you share. Nothing is sent automatically."
-        if not eligible and not panel.document then body = body .. "\n\nNo eligible observations to export." end
-        if panel.message then body = body .. "\n\n" .. panel.message end
+        self.exportPrepare:SetEnabled(eligible)
+        panel.prepareHint:SetText(panel.message or (eligible and "Your data has not been generated yet." or "No eligible observations to export."))
+        Show(panel.prepare, not panel.document)
+        Show(panel.generated, panel.document)
+        Show(panel.select, panel.document)
+        Show(panel.copyHint, panel.document)
+        Show(panel.contact, panel.document)
     end
-    panel.heading:SetText(heading)
-    panel.body:SetText(body)
-    panel.back:SetText(view == "overview" and "Back to Browse" or "Back to Data")
-    local function Show(widget, visible) if visible then widget:Show() else widget:Hide() end end
-    Show(panel.status, view == "overview")
-    for _, card in ipairs(panel.metrics) do Show(card, view == "overview") end
-    Show(panel.directory, view == "overview")
-    Show(panel.contribute, view ~= "contribute")
-    panel.contribute:SetEnabled(eligible)
-    Show(self.exportPrepare, view == "contribute" and not panel.document)
-    self.exportPrepare:SetEnabled(eligible)
-    Show(panel.scroll, view == "contribute" and panel.document)
-    Show(panel.select, view == "contribute" and panel.document)
-    Show(panel.contact, view == "contribute" and panel.document)
 end
 
 function VIC:OpenDataView(view)
-    self:OpenBrowser()
+    self:OpenBrowser(true)
     local browser = self.browserPanel
     if self.choiceMenu then self.choiceMenu:Hide() end
+    if browser.menu then browser.menu:Hide() end
+    if browser.advanced then browser.advanced:Hide() end
     if not self.exportPanel then
-        local panel = CreateFrame("Frame", nil, browser)
-        panel:SetPoint("TOPLEFT", 5, -32)
-        panel:SetSize(560, 380)
-        self:StyleBrowserSurface(panel, "background", "brass")
+        local panel = self:CreateBrowserSurface(browser, 1, -38, 568, 381, "pane", "brass")
         if panel.EnableMouse then panel:EnableMouse(true) end
         if panel.SetFrameLevel and browser.GetFrameLevel then panel:SetFrameLevel(browser:GetFrameLevel() + 15) end
         self.exportPanel = panel
-        panel.heading = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-        panel.heading:SetPoint("TOPLEFT", 14, -36)
-        panel.body = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        panel.body:SetPoint("TOPLEFT", 14, -65)
-        panel.body:SetWidth(530)
-        panel.body:SetJustifyH("LEFT")
-        panel.back = self:CreateBrowserButton(panel, "Back", 10, -5, 122, function()
+
+        local bar = self:CreateBrowserSurface(panel, 1, -1, 566, 33, "plate", "plate")
+        local function Back()
             if browser.dataView ~= "overview" then self:OpenDataView("overview"); return end
             browser.dataView = nil
             panel:Hide()
+            browser.workspace:Show()
             self:RefreshBrowser(true)
-        end)
+        end
+        panel.back = self:CreateBrowserButton(bar, "‹ Items", 6, -5, 56, Back, 24, "plate", "plate")
+        if panel.back.GetFontString then self:StyleBrowserText(panel.back:GetFontString(), 10, "medium", "gold") end
+        Text(bar, "/", 67, 10, 9, 11, "regular", "muted")
+        panel.breadcrumb = Text(bar, "Data & sharing", 77, 9, 280, 12, "bold", "gold")
+
+        local function View()
+            local body = CreateFrame("Frame", nil, panel)
+            body:SetPoint("TOPLEFT", 0, -34)
+            body:SetSize(568, 345)
+            return body
+        end
+        local overview, status, contribute = View(), View(), View()
+        panel.views = { overview = overview, status = status, contribute = contribute }
+
+        Text(overview, "Your vendor data", 8, 10, 420, 16, "medium", "gold")
+        Tag(overview, "PRIVATE · LOCAL", 455, 10, 89, "teal")
+        panel.overviewIntro = Text(overview, "", 8, 40, 535, 10, "regular", "muted")
         panel.metrics = {}
         for i, label in ipairs({ "Vendors", "Items", "Recorded offers" }) do
-            local card = self:CreateBrowserSurface(panel, 12 + 178 * (i - 1), -95, 170, 55, "inset", "brass")
-            card.value = card:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-            card.value:SetPoint("TOPLEFT", 10, -9)
-            local caption = card:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-            caption:SetPoint("TOPLEFT", 10, -33)
-            caption:SetText(label)
+            local card = self:CreateBrowserSurface(overview, 8 + 181 * (i - 1), -59, 171, 55, "inset", "brass")
+            card.value = Text(card, "", 10, 8, 151, 18, "medium", "gold")
+            Text(card, label, 10, 32, 151, 10, "regular", "muted")
             panel.metrics[i] = card
         end
-        panel.directory = self:CreateBrowserSurface(panel, 12, -165, 526, 57, "inset")
-        local directoryHeading = panel.directory:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-        directoryHeading:SetPoint("TOPLEFT", 10, -9)
-        directoryHeading:SetText("Bundled directory")
-        panel.directory.text = panel.directory:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-        panel.directory.text:SetPoint("TOPLEFT", 10, -33)
-        panel.status = self:CreateBrowserButton(panel, "View status", 410, -245, 130, function() self:OpenDataView("status") end)
-        panel.contribute = self:CreateBrowserButton(panel, "Contribute data", 410, -285, 130, function() self:OpenExport() end)
-        panel.scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
-        panel.scroll:SetPoint("TOPLEFT", 15, -157)
-        panel.scroll:SetSize(506, 132)
+        panel.retention = Text(overview, "", 11, 126, 520, 10, "regular", "muted")
+        self:CreateBrowserSurface(overview, 8, -145, 536, 1, "brass", "brass")
+        panel.directory = self:CreateBrowserSurface(overview, 8, -154, 536, 55, "inset", "border")
+        Text(panel.directory, "Bundled directory", 10, 12, 240, 11, "medium", "gold")
+        panel.directory.text = Text(panel.directory, "", 10, 34, 455, 10, "regular", "muted")
+        Tag(panel.directory, "READ-ONLY", 459, 8, 67, "gold")
+        Text(overview, "Dataset status", 8, 217, 260, 11, "medium", "gold")
+        Text(overview, "Client, source date, version, and record counts", 8, 233, 440, 10, "regular", "muted")
+        panel.status = Action(overview, "View status ›", 460, 217, 84, function() self:OpenDataView("status") end)
+        local share = self:CreateBrowserSurface(overview, 8, -253, 536, 47, "inset", "brass")
+        Text(share, "Help improve the directory", 10, 8, 380, 11, "medium", "gold")
+        panel.shareMessage = Text(share, "", 10, 25, 403, 10, "regular", "muted")
+        panel.contribute = Action(share, "Contribute data ›", 422, 9, 103, function() self:OpenExport() end, true)
+
+        Text(status, "Data status", 8, 10, 400, 16, "medium", "gold")
+        Tag(status, "READ-ONLY", 477, 10, 67, "muted")
+        Text(status, "Technical details are available here, away from the main browser and item tooltips.", 8, 40, 530, 10, "regular", "muted")
+        local dataset = self:CreateBrowserSurface(status, 8, -61, 536, 195, "pane", "border")
+        Text(dataset, "Active dataset", 10, 10, 500, 11, "medium", "gold")
+        panel.statusRows = {}
+        for i, field in ipairs({ "Client", "Client build", "Bundled data revision", "Bundled inventory", "Personal observations", "Last merchant learned" }) do
+            local row = self:CreateBrowserSurface(dataset, 10, -26 - (i - 1) * 27, 516, 24, "inset", "inset")
+            Text(row, field, 8, 5, 160, 10, "regular", "muted")
+            local value = Text(row, "", 169, 5, 347, 10, "medium")
+            value:SetJustifyH("RIGHT")
+            panel.statusRows[i] = value
+        end
+        Text(status, "Coverage does not mean live availability.", 8, 264, 460, 10, "medium", "gold")
+        Text(status, "Prices and stock reflect observations. Each client uses its own dataset.", 8, 281, 536, 10, "regular", "muted")
+        Action(status, "Back to overview", 8, 302, 103, Back)
+        panel.statusShare = Action(status, "Contribute data ›", 441, 302, 103, function() self:OpenExport() end, true)
+
+        Text(contribute, "Contribute your vendor data", 13, 7, 522, 16, "medium", "gold")
+        Text(contribute, "Share information from merchants you've visited. Nothing is sent automatically.", 13, 34, 522, 11, "regular", "muted")
+        local privacy = self:CreateBrowserSurface(contribute, 13, -53, 526, 66, "inset", "border")
+        Text(privacy, "SHARED", 11, 9, 50, 10, "medium", "gold")
+        Text(privacy, "Vendor/item IDs, offers, prices, locations & a pseudonym", 59, 9, 447, 10)
+        Text(privacy, "PRIVATE", 11, 27, 50, 10, "medium", "gold")
+        Text(privacy, "No character, account or realm identifiers", 59, 27, 447, 10)
+        Text(privacy, "CC BY-SA 4.0 applies if you share", 11, 45, 420, 10, "regular", "muted")
+        local license = self:CreateBrowserButton(privacy, "View license ↗", 437, -41, 79, License, 20, "inset", "inset")
+        if license.GetFontString then self:StyleBrowserText(license:GetFontString(), 10, "medium", "gold") end
+
+        panel.prepare = self:CreateBrowserSurface(contribute, 13, -126, 526, 125, "inset", "brass")
+        panel.prepareHint = Text(panel.prepare, "", 13, 25, 500, 11, "regular", "muted")
+        panel.prepareHint:SetJustifyH("CENTER")
+        local prepareCaption = Text(panel.prepare, "Creates JSON from saved merchant observations.", 13, 87, 500, 10, "regular", "muted")
+        prepareCaption:SetJustifyH("CENTER")
+        panel.generated = self:CreateBrowserSurface(contribute, 13, -124, 526, 110, "inset", "brass")
+        Text(panel.generated, "Generated JSON", 11, 12, 350, 11, "medium", "gold")
+        local ready = Text(panel.generated, "Ready to copy", 408, 13, 108, 10, "regular", "muted")
+        ready:SetJustifyH("RIGHT")
+        local field = self:CreateBrowserSurface(panel.generated, 11, -29, 506, 79, "background", "border")
+        panel.scroll = CreateFrame("ScrollFrame", nil, field, "UIPanelScrollFrameTemplate")
+        panel.scroll:SetPoint("TOPLEFT", 5, -3)
+        panel.scroll:SetSize(475, 73)
+        panel.scroll.scrollBarHideIfUnscrollable = true
         local box = CreateFrame("EditBox", nil, panel.scroll)
+        box:SetPoint("TOPLEFT", 0, 0)
         box:SetMultiLine(true)
         box:SetAutoFocus(false)
         box:SetFontObject(ChatFontNormal)
-        box:SetWidth(502)
-        box:SetHeight(132)
+        if box.SetJustifyV then box:SetJustifyV("TOP") end
+        box:SetWidth(475)
+        box:SetHeight(73)
         box:SetMaxLetters(0)
+        if box.SetMaxBytes then box:SetMaxBytes(0) end
         box:SetScript("OnEscapePressed", function(edit) edit:ClearFocus(); browser:Hide() end)
-        box:SetScript("OnTextChanged", function(edit)
+        local function UpdateDocumentSize(edit)
             local expected = panel.document or ""
-            if edit:GetText() ~= expected then edit:SetText(expected) end
+            if edit:GetText() ~= expected then edit:SetText(expected); return end
+            local _, size
+            if edit.GetFont then _, size = edit:GetFont() end
+            local lines = edit.GetNumLines and edit:GetNumLines() or 1
+            if lines <= 1 and #expected > 90 then lines = math.ceil(#expected / 88) end
+            edit:SetHeight(math.max(73, lines * ((size or 11) + 2)))
             panel.scroll:UpdateScrollChildRect()
-        end)
+        end
+        box:SetScript("OnTextChanged", UpdateDocumentSize)
         panel.scroll:SetScrollChild(box)
         self.exportBox = box
-        self.exportPrepare = self:CreateBrowserButton(panel, "Generate contribution data", 15, -170, 210, function()
+
+        self.exportPrepare = Action(panel.prepare, "Generate contribution data", 177, 47, 172, function()
             local ok, document, message = pcall(self.BuildContribution, self)
-            if ok and document then panel.document = document; box:SetText(document)
-            else panel.message = ok and message or "Could not encode the stored observations." end
+            if ok and document then
+                panel.document = document
+                box:SetText(document)
+            else
+                panel.message = ok and message or "Could not encode the stored observations."
+            end
             self:RefreshDataView()
-        end)
-        panel.select = self:CreateBrowserButton(panel, "Select JSON to copy", 15, -295, 166, function()
+            UpdateDocumentSize(box)
+            if box.SetCursorPosition then box:SetCursorPosition(0) end
+            if panel.scroll.SetVerticalScroll then panel.scroll:SetVerticalScroll(0) end
+        end, true)
+        self.exportPrepare:SetHeight(31)
+        panel.select = Action(contribute, "Select JSON to copy", 13, 240, 133, function()
             box:SetFocus()
             box:HighlightText()
-        end)
-        panel.contact = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-        panel.contact:SetPoint("TOPLEFT", 15, -325)
-        panel.contact:SetText("Press Ctrl+C, then send it on CurseForge. Project contact link unavailable.")
+        end, true)
+        panel.copyHint = Text(contribute, "Press Ctrl+C, then send it on CurseForge.", 156, 249, 380, 10, "regular", "muted")
+        panel.contact = self:CreateBrowserSurface(contribute, 13, -275, 526, 47, "inset", "brass")
+        Text(panel.contact, "Message me on CurseForge", 8, 8, 340, 11, "medium", "gold")
+        Text(panel.contact, "Link not configured", 8, 25, 340, 10, "regular", "muted")
+        for i, caption in ipairs({ "Copy link", "Open link" }) do
+            local button = Action(panel.contact, caption, 354 + (i - 1) * 84, 8, 78)
+            button:SetEnabled(false)
+            if button.GetFontString then self:StyleBrowserText(button:GetFontString(), 10, "medium", "muted") end
+        end
     end
     browser.dataView = view
+    browser.workspace:Hide()
+    browser.search:ClearFocus()
+    browser.detailSearch:ClearFocus()
     self.exportPanel.document, self.exportPanel.message = nil, nil
     self.exportBox:ClearFocus()
     self.exportBox:SetText("")

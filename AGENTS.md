@@ -4,6 +4,7 @@
 - Preserve the addon's supported WoW Forever and Classic Era client and Lua compatibility. Guard unavailable client APIs, keep saved data compatible, and avoid new runtime dependencies unless clearly justified.
 - Maintain accurate `## Interface:` headers across supported clients (e.g. `16001` for Forever, active `1.15.x` interface numbers such as `11509, 11508, ...` for Classic Era) in both base and flavor-specific TOC files to prevent "out of date" warnings on live patches.
 - Follow existing code style and native WoW UI conventions. Keep tooltips compact and routine addon behavior quiet.
+- Review addon UI changes against each affected approved Figma state linked in `docs/UI_IMPLEMENTATION.md`. Identify which states were visually checked and whether the check used a live client or WoWLua.
 - Keep `README.md` focused on installing, configuring, and using the addon. Put contributor and release procedures in `CONTRIBUTING.md`; keep agent instructions here. Public addon documentation should contain no conversation history, agent commentary, or internal workflow notes.
 - Keep documentation accurate to implemented behavior. Record user-facing addon changes under `Unreleased` in `CHANGELOG.md`; do not rewrite published release history or add routine repository housekeeping to the changelog.
 - For code changes, run the test runner `python3 tests/run_tests.py` and smoke tests. Report what was verified and any checks that could not run; do not claim in-game testing without performing it.

@@ -9,11 +9,11 @@ local function stockMenu()
     mock.waitUntil(function() return vic.browserPanel and vic.browserPanel.stock:IsVisible() end, "Edna inventory")
     local panel = vic.browserPanel
     mock.click(panel.stock)
-    local menu = vic.choiceMenu
+    local menu = panel.menu
     assert(menu:IsShown(), "stock menu did not appear")
     local expected = { "All stock", "In stock", "Sold out", "Unknown stock" }
     for i, label in ipairs(expected) do
-        assert(menu.rows[i]:IsVisible() and menu.rows[i]:GetText() == label, label)
+        assert(menu.rows[i]:IsVisible() and menu.rows[i].entryLabel:GetText():find(label, 1, true), label)
     end
 end
 
@@ -22,9 +22,9 @@ local function filterStock()
     local vic: any = _G["VendorItemCheck"]
     mock.waitUntil(function() return vic.browserPanel and vic.browserPanel.stock:IsVisible() end, "Edna inventory")
     local panel = vic.browserPanel
-    if vic.choiceMenu then vic.choiceMenu:Hide() end
+    if panel.menu then panel.menu:Hide() end
     mock.click(panel.stock)
-    mock.click(vic.choiceMenu.rows[2])
-    assert(not vic.choiceMenu:IsShown() and panel.filters.stock == "available", "the menu did not apply the filter")
-    assert(panel.stock:GetText() == "In stock", "the selected filter did not display")
+    mock.click(panel.menu.rows[2])
+    assert(not panel.menu:IsShown() and panel.filters.stock == "available", "the menu did not apply the filter")
+    assert(panel.stock:GetText():find("In stock", 1, true), "the selected filter did not display")
 end

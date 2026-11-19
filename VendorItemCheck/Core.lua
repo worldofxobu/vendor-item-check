@@ -276,6 +276,22 @@ function VIC:FormatMoney(copper)
     return table.concat(parts, " ")
 end
 
+function VIC:FormatCoinIcons(copper)
+    if copper == nil then return nil end
+    local coins = {
+        { math.floor(copper / 10000), "Gold" },
+        { math.floor(copper / 100) % 100, "Silver" },
+        { copper % 100, "Copper" },
+    }
+    local parts = {}
+    for _, coin in ipairs(coins) do
+        if coin[1] > 0 or copper == 0 and coin[2] == "Copper" then
+            parts[#parts + 1] = string.format("%d |TInterface\\MoneyFrame\\UI-%sIcon:10:10:0:0|t", coin[1], coin[2])
+        end
+    end
+    return table.concat(parts, " ")
+end
+
 function VIC:CountIndexedItems()
     local itemCount, vendorCount = 0, 0
     local vendors = {}

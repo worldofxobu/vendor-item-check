@@ -2,15 +2,34 @@
 
 [Approved Figma specification and screen index](https://www.figma.com/design/1zE9AwAqZWXlYUIPnWtpXX/Vendor-Item-Check?node-id=51-1172)
 
-## Implemented and checked with fixtures
+## Visual review
 
-- [x] Active coverage, per-character quote isolation, independent merchant learning and legacy preference migration. Foundation commit `e5964af`.
-- [x] Compact Items/Vendors shell, history, searchable zone controls, seller filters, inventory grid and stock paging, and native waypoint ownership. Screen and integration commit `1a93abf`.
-- [x] Short native tooltip sections, settings preview, and shared Data, Status and Contribute views. Fixture checks cover input overlap, reset and export round-trip, read-only text, selection, and unsupported export.
-- [x] Python runner (33 tests), seven Lua smoke suites, and whitespace validation.
+Capture the current addon at its standard viewport with
+`python3 tests/run_wowlua.py --screenshots .cache/wowlua-review`. Add `--compact`
+for the synthetic 480 × 800 viewport. The anonymized account replay uses its recorded
+viewport and checks Accurate Slugs prices, quote privacy, and full contribution selection.
 
-## Pending client and Figma acceptance
+| Figma frames | WoWLua screenshots |
+| --- | --- |
+| Items `15:183`, Vendors `15:23` | `item-sellers`, `vendor-inventory` |
+| Zone `16:2`, Filters `51:1214` | `zone-picker`, `advanced-filters` |
+| No results `50:724`, Unnamed item `50:912` | `no-results`, `unnamed-item` |
+| Waypoint set `50:1325`, Unavailable `50:1100` | `waypoint-set`, `waypoint-unavailable` |
+| Native tooltip `50:477`, Settings `50:586`, Hint `65:997` | `collapsed-tooltip`, `expanded-tooltip`, `minimal-tooltip`, `settings`, `settings-help` |
+| Overview `56:952`, Status `56:1027`, Zero state `61:952` | `data-overview`, `data-status`, `data-empty` |
+| Generate `56:1100`, Copy `74:952` | `contribute-generate`, `contribute-copy` |
 
-- [ ] Test on both live clients and record build, interface, dataset date, native map/control availability, tooltip coexistence, combat safety, and full selection of a large JSON document.
-- [ ] Compare the native UI against each approved frame at standard and constrained UI scales. The browser and Data overview use Figma-informed charcoal-and-brass surfaces and spacing. Compare the crest and portrait artwork, detailed frame styling, focus help, and visual polish against the approved frames.
-- [ ] Validate reputation and promotion evidence against the target APIs before enabling REP PRICE or SALE badges. Enable the CurseForge contact actions only after a verified project contact URL is supplied.
+Compare the addon-owned layout, rendered textures, text placement, and controls
+against each frame. Item art, merchant portraits, prices, stock, and counts are
+runtime values. A shop glyph fills the portrait slot when the client has no matching
+merchant available. Blizzard supplies the outer Options panel and item tooltip chrome.
+
+## Live client acceptance
+
+Check both live clients at common UI scales. Record the client build, dataset date,
+map and controller support, tooltip coexistence, combat behavior, and large JSON
+selection. WoWLua covers the states in the table and exercises the compact browser.
+
+Verify reputation and promotion evidence on the target APIs before enabling
+**REP PRICE** or **SALE** badges. Enable the CurseForge contact actions when a
+verified project contact URL is configured.

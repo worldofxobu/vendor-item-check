@@ -16,7 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Replace cycling browser filters and expansion controls with explicit choice menus.
-- Browse scrollable item/vendor lists with remembered tab state, Back navigation, direct seller tracking, and expandable offer details.
+- Expand sellers inline, open their inventory with **Vendor ›**, and restore the prior expanded seller when navigating back.
+- Match the approved browser layout, including the icon toolbar, seller prices and stock columns, inventory grid, and zone and advanced filters.
+- Match the Data & Sharing screens, contribution form, AddOns settings preview, and vendor sections of native item tooltips to their approved layouts.
 - Add compact screen layouts, browser help and coverage details, grouped settings with a sample preview, and confirmation before resetting settings.
 - Fit sharing and detail windows to the viewport and make settings scrollable.
 - Keep tracking coordinates visible when map waypoint creation fails.
@@ -26,9 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Show recorded Forever coin prices for items such as Accurate Slugs even when the merchant marked the item as unpurchasable.
-- Browser offers explain when a reported Forever price has unverified purchase context or a character-specific quote is unavailable.
+- Browser offers show a dash when a price is unavailable and explain the reason on seller hover.
 - Expanded vendor tooltips stack seller names and offer details on narrow screens to keep both readable.
-- Browser headings, page counts, and expanded offer details stay visible above their panel backgrounds. The browser stays above the default HUD, and inventory tiles show prices and stock on separate lines.
+- Browser headings, page counts, and expanded seller rows stay visible above their panel backgrounds. The browser stays above the default HUD.
 - The item browser now honors **Prioritize nearby vendors** when ordering sellers.
 - Forever no longer displays historical Classic inventories, locations, faction restrictions, or prices as Forever data.
 - Client-specific TOCs use matching Forever or Classic Era interface numbers, preventing flavor mismatch errors during packaging.

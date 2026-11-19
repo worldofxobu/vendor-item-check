@@ -61,9 +61,7 @@ function VIC:OwnsVendorWaypoint(vendor)
         self.vendorWaypoint = nil
         return false
     end
-    if not vendor or not self:CanTrackVendor(vendor) or type(vendor.mapID) ~= "number" then return false end
-    local point = UiMapPoint and Call(UiMapPoint.CreateFromCoordinates, vendor.mapID, vendor.x / 100, vendor.y / 100)
-    return SamePoint(point, self.vendorWaypoint)
+    return vendor and self.trackedVendor and vendor.id == self.trackedVendor.id or false
 end
 
 function VIC:TrackVendor(vendor)
@@ -72,6 +70,9 @@ function VIC:TrackVendor(vendor)
         return true
     end
     if not self:CanMapVendor(vendor) then return false end
+    local previous = self.trackedVendor
     self.trackedVendor = vendor
-    return self:ShowTrackedVendorOnMap()
+    if self:ShowTrackedVendorOnMap() then return true end
+    self.trackedVendor = previous
+    return false
 end

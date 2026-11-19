@@ -10,12 +10,30 @@ import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
-TEST_FILE = "merchant_browser.test.wowlua"
+MERCHANT = "merchant_browser.test.wowlua"
+ACCOUNT = "account-replay.test.wowlua"
+BROWSER = "VendorItemCheckBrowser"
 SCREENSHOTS = {
-    "merchant-window": ("renders the native merchant window", "MerchantFrame"),
-    "vendor-inventory": ("renders the vendor inventory", "VendorItemCheckBrowser"),
-    "item-sellers": ("renders the observed sellers", "VendorItemCheckBrowser"),
-    "expanded-tooltip": ("renders the expanded native item tooltip", "GameTooltip"),
+    "merchant-window": (MERCHANT, "renders the native merchant window", "MerchantFrame"),
+    "vendor-inventory": (MERCHANT, "renders the vendor inventory", BROWSER),
+    "item-sellers": (MERCHANT, "renders the observed sellers", BROWSER),
+    "zone-picker": (MERCHANT, "renders the searchable zone picker", BROWSER),
+    "advanced-filters": (MERCHANT, "renders the advanced browser filters", BROWSER),
+    "no-results": (MERCHANT, "renders no results and zone recovery", BROWSER),
+    "unnamed-item": (MERCHANT, "renders an unnamed item", BROWSER),
+    "waypoint-set": (MERCHANT, "renders the waypoint set state", BROWSER),
+    "waypoint-unavailable": (MERCHANT, "renders the waypoint unavailable state", BROWSER),
+    "data-overview": (ACCOUNT, "renders data overview with personal observations", BROWSER),
+    "data-status": (ACCOUNT, "renders data status", BROWSER),
+    "data-empty": (MERCHANT, "renders the data overview without personal observations", BROWSER),
+    "contribute-generate": (ACCOUNT, "renders the contribution generation state", BROWSER),
+    "contribute-copy": (ACCOUNT, "renders and selects the complete generated contribution", BROWSER),
+    "settings": (MERCHANT, "renders Vendor Item Check in native AddOns settings", "SettingsPanel"),
+    "settings-help": (MERCHANT, "renders the contextual settings hint", "VendorItemCheckSettingsHint"),
+    "collapsed-tooltip": (MERCHANT, "renders the collapsed native item tooltip", "GameTooltip"),
+    "expanded-tooltip": (MERCHANT, "renders the expanded native item tooltip", "GameTooltip"),
+    "minimal-tooltip": (MERCHANT, "renders the minimal expanded native item tooltip", "GameTooltip"),
+    "accurate-slugs": (ACCOUNT, "shows the recorded Accurate Slugs price", BROWSER),
 }
 
 
@@ -61,10 +79,10 @@ def main():
         if args.screenshots:
             output = args.screenshots.resolve()
             output.mkdir(parents=True, exist_ok=True)
-            for name, (test, frame) in SCREENSHOTS.items():
+            for name, (test_file, test, frame) in SCREENSHOTS.items():
                 if args.filter and args.filter not in test:
                     continue
-                run("screenshot", f"tests/{TEST_FILE}", "--flavor", "camelot", "--locked",
+                run("screenshot", f"tests/{test_file}", "--flavor", "camelot", "--locked",
                     "--test", test, "--frame", frame, "--output", str(output / (name + ".png")))
         else:
             filters = [args.filter] if args.filter else []

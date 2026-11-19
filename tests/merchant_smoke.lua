@@ -55,7 +55,7 @@ assert(VIC.observations.schema == 1 and VIC.observations.reporterId:match("^vic%
 assert(VIC.Datasets.forever.items[100002] == nil, "Personal records must not mutate bundled data")
 local tip = CreateFrame("GameTooltip", "PersonalTestTooltip")
 tip:SetHyperlink("item:100002")
-assert(tip.lines[2].left:find("observed") and tip.lines[2].left:find("4c"))
+assert(tip.lines[2].left:find("4 |T", 1, true) and tip.lines[2].left:find("UI-CopperIcon", 1, true))
 alt = true
 tip:SetHyperlink("item:100002")
 local observed, access, quote = false, false, false
@@ -63,7 +63,7 @@ for _, line in ipairs(tip.lines) do
     local text = (line.left or "") .. (line.right or "")
     observed = observed or text:find("Observed 2026", 1, true)
     access = access or text:find("Observed access", 1, true)
-    quote = quote or text:find("4c", 1, true)
+    quote = quote or text:find("4 |T", 1, true) and text:find("UI-CopperIcon", 1, true)
     assert(not text:find("Everloot", 1, true), "Personal facts must not be attributed to Everloot")
 end
 assert(not observed and not access and quote)

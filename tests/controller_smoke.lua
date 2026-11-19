@@ -93,7 +93,7 @@ end
 local function Expanded(tip) return Text(tip):find("Sold by vendors", 1, true) ~= nil end
 local tip = CreateFrame("GameTooltip", "ControllerTooltip")
 tip:SetHyperlink("item:100002")
-assert(Text(tip):find("Hold ALT or LT for locations", 1, true))
+assert(Text(tip):find("Hold ALT or LT / L2 for locations", 1, true))
 assert(VIC.tooltipWatcher:GetScript("OnUpdate"))
 buttons[1] = true
 Tick()
@@ -160,7 +160,7 @@ VIC.tooltipWatcher.scripts.OnEvent()
 assert(Expanded(tip))
 ctrl = false
 Select(named.VICKeyboardModifier, "OFF")
-assert(VIC.settings.modifierKey == "OFF" and Text(tip):find("Hold LT for locations", 1, true))
+assert(VIC.settings.modifierKey == "OFF" and Text(tip):find("Hold LT / L2 for locations", 1, true))
 alt = true
 Tick()
 assert(not Expanded(tip), "Keyboard-off mode must not respond to Alt")

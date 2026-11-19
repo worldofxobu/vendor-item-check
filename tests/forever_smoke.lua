@@ -57,7 +57,7 @@ local alt = false
 IsAltKeyDown = function() return alt end
 local tip = CreateFrame("GameTooltip", "ForeverTestTooltip")
 tip:SetHyperlink("item:100002:0:0:0")
-assert(tip:NumLines() == 2, "Confirmed item should have one compact section")
+assert(tip:NumLines() == 3, "Confirmed item should have one heading and a hold hint")
 assert(tip.lines[2].left:find("Sold by vendor"))
 assert(not tip.lines[2].left:find("999999"))
 alt = true

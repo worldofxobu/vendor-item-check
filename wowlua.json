@@ -10,7 +10,8 @@
     "name": "VendorItemCheck",
     "title": "Vendor Item Check",
     "notes": "Shows if an item can be bought at a vendor, with expandable vendor locations on Alt.",
-    "saved-variables": ["VendorItemCheckDB"]
+    "saved-variables": ["VendorItemCheckDB"],
+    "toc-extra": { "X-VIC-Media-Folder": "VendorItemCheck\\Media" }
   },
   "flavors": {
     "camelot": { "interface": [16001] },
@@ -22,7 +23,7 @@
   "build": {
     "src": "VendorItemCheck",
     "out": ".cache/wowlua",
-    "assets": ["VendorItemCheck/DATA_LICENSE.md"],
+    "assets": ["VendorItemCheck/DATA_LICENSE.md", "VendorItemCheck/Media/**"],
     "load-order": [
       "VendorItemCheck/Data.lua",
       "VendorItemCheck/DataForever.lua",

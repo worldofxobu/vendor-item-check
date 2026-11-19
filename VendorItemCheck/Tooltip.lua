@@ -126,120 +126,91 @@ function VIC:IsExpanded()
     return expanded
 end
 
-function VIC:AddVendorSection(tooltip, itemID, itemInfo, isExpanded, hintKey, preview)
-    if TooltipContainsSection(tooltip) then
-        return
+local function TooltipPrice(self, vendor, reference, showEach)
+    if reference ~= nil then return self:FormatCoinIcons(reference) .. " (reference)" end
+    local quantity = vendor.quantity
+    if quantity == 1 and not showEach then quantity = nil end
+    return self:FormatOfferPrice(vendor.copper, quantity, self.FormatCoinIcons)
+end
+
+local function CollapsedPrice(self, info)
+    if info.price ~= nil then return TooltipPrice(self, nil, info.price) end
+    local best, context, comparable, different
+    local count = 0
+    for _, vendor in ipairs(info.vendors) do
+        if vendor.copper and vendor.accessObserved and vendor.stock ~= 0 then
+            count = count + 1
+            if not best then
+                best, context, comparable = vendor, vendor.discount, vendor.discount ~= nil
+            elseif context ~= vendor.discount then
+                comparable = false
+            else
+                local price = vendor.copper * best.quantity
+                local lowest = best.copper * vendor.quantity
+                if price ~= lowest then different = true end
+                if price < lowest then best = vendor end
+            end
+        end
     end
+    if count == 1 or count > 1 and comparable then
+        return (different and "from " or "") .. TooltipPrice(self, best, nil, true)
+    end
+end
+
+local controllerCaptions = { LT = "LT / L2", RT = "RT / R2", LB = "LB / L1", RB = "RB / R1" }
+
+function VIC:AddVendorSection(tooltip, itemID, itemInfo, isExpanded, hintKey, preview)
+    if TooltipContainsSection(tooltip) then return end
 
     local settings = self.settings or self.defaults
     if isExpanded == nil then isExpanded, hintKey = self:GetExpansionState() end
-
+    if not itemInfo.enemyOnly and (not itemInfo.vendors or #itemInfo.vendors == 0) then return end
     if not preview then AddBlankLine(tooltip) end
-
     if itemInfo.enemyOnly then
-        local enemyTag = itemInfo.enemyFaction or "Enemy"
-        tooltip:AddLine(string.format("|cffff6666Sold by vendor (%s only)|r", enemyTag), 1.0, 0.4, 0.4)
+        tooltip:AddLine(("Sold by vendor (%s only)"):format(itemInfo.enemyFaction or "Enemy"), 1, 0.4, 0.4)
         tooltip:Show()
         return
     end
 
-    local vendors = itemInfo.vendors
-    if not vendors or #vendors == 0 then
-        return
-    end
-
-    local priceText = ""
-    if settings.showPrice and itemInfo.price and itemInfo.price > 0 then
-        priceText = ": " .. (self:FormatMoney(itemInfo.price) or "") .. " (reference)"
-    elseif settings.showPrice and not isExpanded and itemInfo.observedPriceText then
-        priceText = ": " .. itemInfo.observedPriceText .. " |cff888888(observed)|r"
-    end
-
-    if settings.showPrice and not isExpanded and not preview and not itemInfo.price then
-        local best, context, different, comparable
-        for _, vendor in ipairs(vendors) do
-            if vendor.quoteText and vendor.copper and vendor.accessObserved and vendor.stock ~= 0 and vendor.discount then
-                if not best then
-                    best, context, comparable = vendor, vendor.discount, true
-                elseif context ~= vendor.discount then
-                    comparable = false
-                else
-                    local left = vendor.copper * best.quantity
-                    local right = best.copper * vendor.quantity
-                    if left ~= right then different = true end
-                    if left < right then best = vendor end
-                end
-            end
-        end
-        if best and comparable then
-            priceText = (different and ": from " or ": ") .. best.quoteText .. " |cff888888(observed)|r"
-        end
-    end
-
     if not isExpanded then
-        -- Compact line
-        local hintText = ""
+        local price = settings.showPrice and CollapsedPrice(self, itemInfo)
+        tooltip:AddLine("|cff1eff00Sold by vendor" .. (price and ":|r " .. price or "|r"), 1, 1, 1)
         if hintKey then
-            hintText = string.format("  |cff888888(Hold %s for locations)|r", hintKey)
+            local caption = hintKey:gsub("%u+", controllerCaptions)
+            tooltip:AddLine("Hold " .. caption .. " for locations", 0.67, 0.64, 0.59, true)
         end
-
-        tooltip:AddLine("|cff00ff00Sold by vendor|r" .. priceText .. hintText, 1.0, 1.0, 1.0)
     else
-        -- Expanded view
-        local playerZone, playerX, playerY = self:GetPlayerLocation()
+        local vendors = itemInfo.vendors
         if settings.showClosestFirst and not preview then
-            vendors = self:SortVendorsByProximity(vendors, playerZone, playerX, playerY)
+            local zone, x, y = self:GetPlayerLocation()
+            self:SortVendorsByProximity(vendors, zone, x, y)
         end
-
-        local header = "|cff00ff00Sold by vendors|r"
-        if settings.showClosestFirst then
-            header = header .. " |cff888888(closest first)|r"
-        end
-        if priceText ~= "" then
-            header = header .. priceText
-        end
-
-        tooltip:AddLine(header, 1.0, 1.0, 1.0)
+        local header = "|cff1eff00Sold by vendors|r"
+        if settings.showClosestFirst then header = header .. "  |cffa8a195(nearest first)|r" end
+        tooltip:AddLine(header, 1, 1, 1)
 
         local maxShown = math.max(1, tonumber(settings.maxVendors) or 4)
         local count = math.min(#vendors, maxShown)
         local screenWidth = UIParent and UIParent.GetWidth and UIParent:GetWidth()
-        local narrow = screenWidth and screenWidth < 560
-
+        local narrow = not preview and screenWidth and screenWidth < 560
         for i = 1, count do
-            local v = vendors[i]
-            local left = "  |cffffffff" .. v.name .. "|r"
-
-            local rightParts = {}
-            local zoneStr = v.zone or "Azeroth"
-            if settings.showCoordinates and v.x > 0 and v.y > 0 then
-                zoneStr = string.format("%s (%s%.1f, %.1f)", zoneStr, v.approximate and "~" or "", v.x, v.y)
+            local vendor = vendors[i]
+            tooltip:AddLine(vendor.name, 0.95, 0.93, 0.88, true)
+            local location = vendor.zone or "Location unavailable"
+            if settings.showCoordinates and vendor.x and vendor.x > 0 and vendor.y and vendor.y > 0 then
+                location = string.format("%s (%s%.1f, %.1f)", location, vendor.approximate and "~" or "", vendor.x, vendor.y)
             end
-            rightParts[#rightParts + 1] = "|cffb0b0b0" .. zoneStr .. "|r"
-
-            if settings.showPrice then
-                local price = v.quoteText or (itemInfo.price and (self:FormatMoney(itemInfo.price) or "0c") .. " (reference)")
-                if price then rightParts[#rightParts + 1] = price end
-            end
-
-            local right = table.concat(rightParts, " ")
-            if narrow then
-                tooltip:AddLine(left, 1, 1, 1, true)
-                tooltip:AddLine("    " .. right, 0.8, 0.8, 0.8, true)
+            local price = settings.showPrice and TooltipPrice(self, vendor, itemInfo.price)
+            if price and not narrow then
+                tooltip:AddDoubleLine(location, price, 0.67, 0.64, 0.59, 0.95, 0.93, 0.88)
             else
-                tooltip:AddDoubleLine(left, right, 1, 1, 1, 0.8, 0.8, 0.8)
+                tooltip:AddLine(location, 0.67, 0.64, 0.59, true)
+                if price then tooltip:AddLine(price, 0.95, 0.93, 0.88, true) end
             end
         end
-
-        if #vendors > count then
-            tooltip:AddLine(
-                string.format("  |cff888888+%d more vendors across Azeroth|r", #vendors - count),
-                0.6, 0.6, 0.6
-            )
-        end
-
+        local remaining = (preview and itemInfo.totalCount or #vendors) - count
+        if remaining > 0 then tooltip:AddLine("+" .. remaining .. " more vendors", 0.67, 0.64, 0.59) end
     end
-
     tooltip:Show()
 end
 
@@ -339,16 +310,9 @@ RefreshTooltip = function(tooltip)
         link = itemLink
     end
 
-    if not link then
-        return
-    end
-
+    if not link or not tooltip.SetHyperlink then return end
     isRefreshing = true
-    pcall(function()
-        if tooltip.SetHyperlink then
-            tooltip:SetHyperlink(link)
-        end
-    end)
+    pcall(tooltip.SetHyperlink, tooltip, link)
     isRefreshing = false
 end
 

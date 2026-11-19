@@ -88,6 +88,13 @@ map IDs. Coordinates are stored as percentages and converted to normalized map
 coordinates only at the waypoint boundary. Clear only a waypoint that still
 matches the addon-owned point. Do not alter native supertracking.
 
+Use the approved frames linked from `docs/UI_IMPLEMENTATION.md` to review layout
+changes. Addon-owned frames share the palette and typography in `Browser.lua`.
+Static artwork and the Inter and Cinzel fonts ship under `VendorItemCheck/Media/`,
+along with their applicable font licenses. Keep that media directory beside the
+production TOCs. WoWLua preserves package-relative asset paths and uses its
+`X-VIC-Media-Folder` TOC field to resolve the same assets in development builds.
+
 Run `lua tests/browser_smoke.lua` for synthetic cross-link navigation, filtering,
 name loading, expiry, quote privacy and waypoint ownership checks. In each supported
 client, also inspect layout at common UI scales, long/localized names, item hover,
@@ -144,7 +151,8 @@ import) to replay another saved character's quotes.
 
 Use `python3 tests/run_wowlua.py --wow PATH_TO_WORLD_OF_WARCRAFT` to supply an
 installation path on the command line. Add `--screenshots .cache/wowlua-review` to
-render the synthetic merchant window, browser states and expanded tooltip. Add
+render the approved browser, settings, tooltip and data states and the Accurate
+Slugs replay. Add
 `--compact` to exercise the synthetic UI at 480×800. The account replay uses its
 recorded viewport in either mode.
 
