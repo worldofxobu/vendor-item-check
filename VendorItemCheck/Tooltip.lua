@@ -158,7 +158,7 @@ function VIC:AddVendorSection(tooltip, itemID, itemInfo, isExpanded, hintKey, pr
     if settings.showPrice and not isExpanded and not preview and not itemInfo.price then
         local best, context, different, comparable
         for _, vendor in ipairs(vendors) do
-            if vendor.quoteText and vendor.copper and vendor.quantity and vendor.quantity > 0 then
+            if vendor.quoteText and vendor.copper and vendor.accessObserved and vendor.stock ~= 0 and vendor.discount then
                 if not best then
                     best, context, comparable = vendor, vendor.discount, true
                 elseif context ~= vendor.discount then

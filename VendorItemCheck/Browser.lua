@@ -42,7 +42,7 @@ function VIC:BuildBrowserIndex(filters, ignoreZone)
         local info = self:GetItemVendors(id, { source = filters.source, allFactions = true })
         for _, vendor in ipairs(info and info.vendors or {}) do
             if (ignoreZone or not zone or vendor.zone == zone) and
-                (not filters.discounted or vendor.discount and vendor.discount > 0 and vendor.discount < 1 and vendor.copper) then
+                (not filters.discounted or vendor.accessObserved and vendor.discount and vendor.discount < 1 and vendor.copper) then
                 vendor.inaccessible = not self:IsVendorFriendly(vendor.faction, self:GetPlayerFaction())
                 if not filters.allFactions and vendor.inaccessible then
                     index.hidden = index.hidden or {}
@@ -68,8 +68,8 @@ function VIC:BuildBrowserIndex(filters, ignoreZone)
     for _, item in pairs(index.items) do
         local groups = {}
         for _, vendor in ipairs(item.vendors) do
-            if vendor.copper and vendor.quantity and vendor.quantity > 0 and not vendor.inaccessible then
-                local context = vendor.discount or "unknown"
+            if vendor.copper and vendor.accessObserved and vendor.discount and vendor.stock ~= 0 and not vendor.inaccessible then
+                local context = vendor.discount
                 local group = groups[context] or { count = 0 }
                 groups[context] = group
                 group.count = group.count + 1
@@ -78,9 +78,9 @@ function VIC:BuildBrowserIndex(filters, ignoreZone)
             end
         end
         for _, vendor in ipairs(item.vendors) do
-            local group = groups[vendor.discount or "unknown"]
+            local group = vendor.discount and groups[vendor.discount]
             local best = group and group.count > 1 and group.best
-            vendor.cheapest = best and vendor.copper and vendor.quantity and not vendor.inaccessible
+            vendor.cheapest = best and vendor.copper and vendor.accessObserved and vendor.stock ~= 0 and not vendor.inaccessible
                 and vendor.copper * best.quantity == best.copper * vendor.quantity
         end
     end

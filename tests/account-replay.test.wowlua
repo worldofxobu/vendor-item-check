@@ -52,6 +52,31 @@ local function counts()
     mock.setPlayer({ guid = "Player-1-00000001" })
 end
 
+@test("shows the recorded Accurate Slugs price independently of purchase eligibility")
+local function accurateSlugs()
+    local panel = selectRow("items", "11284", 11284)
+    local prices = { [734] = 900, [1285] = 900, [1461] = 1000, [2808] = 900, [5101] = 1000, [5123] = 1000 }
+    local item = panel.index.items[11284]
+    assert(#item.vendors == 6, "expected all six saved sellers")
+    for _, vendor in ipairs(item.vendors) do
+        assert(vendor.copper == prices[vendor.id] and vendor.quantity == 200 and vendor.stock == -1, "recorded price or stack is missing")
+        assert(not vendor.accessObserved and not vendor.cheapest, "price must not grant purchase eligibility")
+        assert(vendor.quoteText and vendor.quoteText:find(vendor.copper == 900 and " / 200" or "5c", 1, true), "price was rounded or hidden")
+    end
+    for _, row in ipairs(panel.details) do
+        if row.row then
+            assert(row.offer:GetText():find(row.row.vendor.copper == 900 and " / 200" or "each", 1, true), "seller row lost its price")
+        end
+    end
+    panel = selectRow("vendors", "Thurman Mullby", 1285)
+    mock.typeText(panel.detailSearch, "11284")
+    assert(panel.details[1].row.id == 11284 and panel.details[1].offer:GetText():find(" / 200", 1, true), "inventory row lost its batch price")
+    mock.setPlayer({ guid = "Player-1-00000004" })
+    local foreign = offer(11284, 1285)
+    assert(not foreign.copper and not foreign.quoteText and not foreign.accessObserved, "price leaked to another character")
+    mock.setPlayer({ guid = "Player-1-00000001" })
+end
+
 @test("renders Edna Mullby's saved inventory")
 local function inventory()
     local panel = selectRow("vendors", "Edna Mullby", 1286)

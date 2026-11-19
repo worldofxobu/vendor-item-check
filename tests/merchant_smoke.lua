@@ -109,6 +109,9 @@ assert(VIC:GetItemVendors(100004) == nil and #delayed > 0)
 slots[2].pending = false
 table.remove(delayed, 1)()
 assert(VIC:GetItemVendors(100004).vendors[1].stock == 0)
+assert(VIC:GetItemVendors(100004).vendors[1].copper == 5)
+assert(not VIC:GetItemVendors(100004).vendors[1].accessObserved and not VIC:GetItemVendors(100004).observedPriceText,
+    "A recorded price must not establish access or advertise a purchasable offer")
 slots = { slots[1] }
 Event("MERCHANT_UPDATE")
 assert(VIC:GetItemVendors(100004), "Filtered/absent slots cannot prove removal")

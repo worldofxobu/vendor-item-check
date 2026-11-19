@@ -78,6 +78,9 @@ their behavior. Browser zone filtering follows offer resolution. Do not bypass
 freshness or character-specific quote checks. Search indexes are transient; item
 names resolve in bounded batches from guarded client APIs. Merchant scans refresh
 an open browser; reopening and periodic visible refreshes recheck freshness.
+Keep observed copper and purchase eligibility independent. A fresh same-character
+coin price with a known quantity can be shown even when the slot was unavailable
+to buy. Access and cheapest-price comparisons require their own evidence.
 
 `Tracking.lua` keeps session-only ownership of the native waypoint. Native waypoints require a
 recorded map ID and guarded waypoint APIs; zone strings must never be guessed into

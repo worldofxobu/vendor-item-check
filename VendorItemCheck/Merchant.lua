@@ -204,15 +204,20 @@ function VIC:MerchantInitialize()
     end)
 end
 
-function VIC:PersonalQuote(record)
-    if record.canPurchase ~= true then return nil end
-    if record.hasExtendedCost ~= false or not Number(record.quantity, 1) or not Number(record.priceCopper, 0) then return nil end
-    local price = record.priceCopper
-    if price % record.quantity == 0 then
-        local unitPrice = price / record.quantity
-        return (unitPrice == 0 and "0c" or self:FormatMoney(unitPrice)) .. " each"
+local function ObservedCopper(record)
+    if record.hasExtendedCost == false and Integer(record.quantity, 1) and Integer(record.priceCopper, 0) then
+        return record.priceCopper
     end
-    return (price == 0 and "0c" or self:FormatMoney(price)) .. " / " .. record.quantity
+end
+
+function VIC:FormatOfferPrice(copper, quantity, formatMoney)
+    if copper == nil then return nil end
+    local function Money(amount)
+        return formatMoney(self, amount) or "0c"
+    end
+    if not quantity then return Money(copper) end
+    if copper % quantity == 0 then return Money(copper / quantity) .. " each" end
+    return Money(copper) .. " / " .. quantity
 end
 
 function VIC:MergePersonalVendors(itemID, info, hiddenVendors)
@@ -239,6 +244,7 @@ function VIC:MergePersonalVendors(itemID, info, hiddenVendors)
                 local location = chosen.location or {}
                 local discount = sameCharacter and chosen.discount
                 if not Number(discount, 0.000001) or discount > 1 then discount = nil end
+                local copper = sameCharacter and ObservedCopper(chosen) or nil
                 local vendor = {
                     id = vendorId, name = chosen.vendorName or ("Vendor " .. vendorId),
                     zone = location.zone or "Location unknown", mapID = location.mapId,
@@ -247,9 +253,9 @@ function VIC:MergePersonalVendors(itemID, info, hiddenVendors)
                     locationExpires = chosen.observedAt + 30 * 86400,
                     accessObserved = sameCharacter and chosen.canPurchase == true,
                     quantity = chosen.quantity,
-                    copper = sameCharacter and chosen.canPurchase == true and chosen.hasExtendedCost == false and Integer(chosen.priceCopper, 0) and chosen.priceCopper or nil,
+                    copper = copper,
                     discount = discount,
-                    quoteText = sameCharacter and self:PersonalQuote(chosen) or nil,
+                    quoteText = self:FormatOfferPrice(copper, chosen.quantity, self.FormatMoney),
                     alternateCost = sameCharacter and chosen.hasExtendedCost == true,
                 }
                 if existing then info.vendors[byID[vendorId]] = vendor
@@ -262,7 +268,10 @@ function VIC:MergePersonalVendors(itemID, info, hiddenVendors)
     if info.totalCount > 0 then info.enemyOnly = false end
     local quotes = 0
     for _, vendor in ipairs(info.vendors) do
-        if vendor.quoteText then quotes = quotes + 1; info.observedPriceText = vendor.quoteText end
+        if vendor.quoteText and vendor.accessObserved and vendor.stock ~= 0 then
+            quotes = quotes + 1
+            info.observedPriceText = vendor.quoteText
+        end
     end
     if quotes ~= 1 then info.observedPriceText = nil end
     return info

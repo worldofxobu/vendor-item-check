@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Open the browser with /vic and settings with /vic settings; restore item/vendor browsing context with Back. Simplify result labels and keep the browser on screen.
 
 ### Fixed
+- Show recorded Forever coin prices for items such as Accurate Slugs even when the merchant marked the item as unpurchasable.
 - Browser offers explain when a reported Forever price has unverified purchase context or a character-specific quote is unavailable.
 - Expanded vendor tooltips stack seller names and offer details on narrow screens to keep both readable.
 - Browser headings, page counts, and expanded offer details stay visible above their panel backgrounds. The browser stays above the default HUD, and inventory tiles show prices and stock on separate lines.
