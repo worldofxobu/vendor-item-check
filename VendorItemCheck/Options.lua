@@ -30,8 +30,16 @@ local function Button(parent, name, value, x, y, width, action, primary)
     button:SetPoint("TOPLEFT", x, y)
     button:SetSize(width, 27)
     button:SetText(value)
-    if VIC.StyleBrowserText and button.GetFontString then
-        VIC:StyleBrowserText(button:GetFontString(), 11, "medium", primary and "gold" or "cream")
+    local label = button.GetFontString and button:GetFontString()
+    if not label and button.SetFontString then
+        -- A template-free button may not have a font string after SetText("").
+        label = button:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        label:SetPoint("CENTER")
+        button:SetFontString(label)
+        button:SetText(value)
+    end
+    if VIC.StyleBrowserText and label then
+        VIC:StyleBrowserText(label, 11, "medium", primary and "gold" or "cream")
     end
     button:SetScript("OnClick", action)
     return button
@@ -387,7 +395,8 @@ function VIC:CreateOptionsPanel()
             if self.PaintBrowserSurface then
                 local active = (self.previewExpanded ~= false) == (i == 2)
                 self:PaintBrowserSurface(state, active and "action" or "plate", active and "brass" or "border")
-                if state.GetFontString then self:StyleBrowserText(state:GetFontString(), 11, "medium", active and "gold" or "muted") end
+                local label = state.GetFontString and state:GetFontString()
+                if label then self:StyleBrowserText(label, 11, "medium", active and "gold" or "muted") end
             end
         end
         if preview.ClearAllPoints then preview:ClearAllPoints() end

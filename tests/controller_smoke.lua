@@ -33,6 +33,20 @@ CreateFrame = function(frameType, name, parent, ...)
     created[#created + 1] = frame
     if name then named[name] = frame end
     frame.EnableGamePadButton, frame.EnableKeyboard, frame.SetPropagateKeyboardInput = Forbidden, Forbidden, Forbidden
+    if name == "VICKeyboardModifier" or name == "VICControllerModifier" then
+        -- Forever can return nil for a template-free button created with empty text.
+        function frame:GetFontString() return self.label end
+        function frame:SetFontString(label)
+            self.label = label
+            function label:ClearAllPoints() end
+            function label:SetJustifyH(justify) self.justify = justify end
+        end
+        local setText = frame.SetText
+        function frame:SetText(value)
+            setText(self, value)
+            if self.label then self.label:SetText(value) end
+        end
+    end
     if frameType == "GameTooltip" then
         local hooks = {}
         function frame:HookScript(event, callback)
@@ -60,6 +74,10 @@ end
 VIC:TooltipInitialize()
 VIC:OptionsInitialize()
 assert(reads == 0 and not VIC.tooltipWatcher:GetScript("OnUpdate"), "No input polling without an item tooltip")
+local keyboardLabel = named.VICKeyboardModifier:GetFontString()
+local controllerLabel = named.VICControllerModifier:GetFontString()
+assert(keyboardLabel and keyboardLabel:GetText() == "Hold ALT" and keyboardLabel.justify == "LEFT")
+assert(controllerLabel and controllerLabel:GetText() == "Hold LT / L2" and controllerLabel.justify == "LEFT")
 -- The live report exposed a keyboard selector overlapping the preview buttons.
 local settingsScroll, collapsed
 for _, frame in ipairs(created) do

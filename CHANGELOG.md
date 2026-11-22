@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Open the browser with /vic and settings with /vic settings; restore item/vendor browsing context with Back. Simplify result labels and keep the browser on screen.
 
 ### Fixed
+- Fixed a Forever startup error when creating the settings buttons for keyboard and controller modifiers.
 - Show recorded Forever coin prices for items such as Accurate Slugs even when the merchant marked the item as unpurchasable.
 - Browser offers show a dash when a price is unavailable and explain the reason on seller hover.
 - Expanded vendor tooltips stack seller names and offer details on narrow screens to keep both readable.
