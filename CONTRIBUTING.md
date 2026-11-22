@@ -181,6 +181,9 @@ Personal observations are a separate layer from the corroborated bundled databas
 `Merchant.lua` records positive merchant-slot evidence while the window is open,
 using guarded modern APIs or legacy fallbacks. Pending links retry only for the
 same merchant session. Missing/filtered slots never prove an inventory removal.
+Check unit GUIDs and names for secret values before parsing, comparing, or storing
+them. A restricted GUID skips the scan. Require a readable player GUID to show
+character-specific quotes or access from saved observations.
 The latest offer per NPC/item/character is saved under the versioned
 `VendorItemCheckDB.observations` subtree; existing flat settings remain compatible.
 Unknown future observation schemas are preserved and recording stays unavailable.

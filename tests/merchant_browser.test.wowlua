@@ -145,6 +145,45 @@ local function merchantWindow()
     assert(offer.stock == 3 and offer.quantity == 2 and offer.copper == 105, "observed stock and batch cost")
 end
 
+@test("handles secret unit identities during merchant recording")
+local function secretMerchantIdentity()
+    farMerchant()
+    local vic = addon()
+    local frame = vic.merchantFrame
+    local event = frame:GetScript("OnEvent")
+    local unitGUID = UnitGUID
+    local character = UnitGUID("player")
+    assert(not issecretvalue(character) and character)
+    local offers = vic.observations.characters[character].offers
+    local key = farID .. ":" .. trackedItem
+    local previous = assert(offers[key])
+    local restrictedUnit = "npc"
+    mock.stub(_G, "UnitGUID", function(unit: string)
+        if unit == restrictedUnit then return mock.secret("restricted GUID") end
+        return unitGUID(unit)
+    end)
+
+    event(frame, "MERCHANT_SHOW")
+    assert(vic.merchantGUID == nil and offers[key] == previous, "a restricted merchant must leave observations intact")
+
+    restrictedUnit = "player"
+    event(frame, "MERCHANT_SHOW")
+    assert(offers[key] == previous, "a restricted player must not create observations")
+    local vendor = vic:GetItemVendors(trackedItem).vendors[1]
+    assert(vendor.personal and not vendor.copper and not vendor.accessObserved, "inventory stays visible without private quotes")
+
+    restrictedUnit = ""
+    local unitName = UnitName
+    mock.stub(_G, "UnitName", function(unit: string)
+        if unit == "npc" then return mock.secret("restricted name") end
+        return unitName(unit)
+    end)
+    event(frame, "MERCHANT_UPDATE")
+    assert(offers[key] ~= previous and offers[key].vendorName == nil, "record readable offers without a restricted name")
+    assert(vic:GetItemVendors(trackedItem).vendors[1].copper == 105, "recording resumes when the player's GUID is readable")
+    mock.closeMerchant()
+end
+
 @test("renders the vendor inventory and supports filters, paging and selection")
 local function inventory()
     mock.closeMerchant()

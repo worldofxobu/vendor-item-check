@@ -16,6 +16,8 @@ Vendor Item Check is a lightweight, zero-dependency addon for **World of Warcraf
 
 On Forever, the addon automatically learns from merchants you visit. Open a merchant window, then hover an observed item anywhere to see who sold it. Hold your modifier for locations and qualified prices. Hover a seller row in the browser for its observation date. Recording stays local and is enabled by default. Turn it off with `/vic recording off` or **Learn from merchants I visit** in settings.
 
+Recording requires the game to expose both the merchant's and your character's identity. If your character's identity is restricted, saved inventory stays visible and personal prices and access are hidden.
+
 Your own observations are usable immediately and expire after 30 days. A recorded coin price can appear even when the merchant marked the item as unpurchasable. Prices and observed access apply only to the observing character and reflect the merchant visit. Non-integral per-item copper prices are shown as an exact batch cost. Offers with alternate or unknown costs are excluded from coin-price comparisons.
 
 The bundled Forever database combines eligible [Everloot observations](https://everloot.app/docs/api) with reviewed player contributions. At least three independent reporters are required for a shared item/vendor relation. Classic inventories, coordinates, faction access, and prices are never substituted for missing Forever data.

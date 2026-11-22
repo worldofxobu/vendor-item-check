@@ -8,6 +8,12 @@ local function Call(api, ...)
     if ok then return a, b, c, d, e, f, g, h end
 end
 
+local function ReadUnitString(api, unit)
+    local value = Call(api, unit)
+    if issecretvalue and issecretvalue(value) then return nil end
+    if type(value) == "string" then return value end
+end
+
 local function Number(value, minimum)
     return type(value) == "number" and value == value and value < math.huge and value >= minimum
 end
@@ -65,8 +71,8 @@ function VIC:RebuildPersonalIndex()
 end
 
 local function MerchantIdentity()
-    local guid = Call(UnitGUID, "npc")
-    if type(guid) ~= "string" then return nil end
+    local guid = ReadUnitString(UnitGUID, "npc")
+    if not guid then return nil end
     local kind, id = string.match(guid, "^(%a+)%-%d+%-%d+%-%d+%-%d+%-(%d+)%-")
     if kind == "Creature" or kind == "Vehicle" then return guid, tonumber(id) end
 end
@@ -105,7 +111,7 @@ function VIC:ScanMerchant()
         not self.settings.recordMerchants or not self.merchantGUID then return end
     local guid, vendorId = MerchantIdentity()
     if guid ~= self.merchantGUID then return end
-    local character = Call(UnitGUID, "player")
+    local character = ReadUnitString(UnitGUID, "player")
     local now = self:ObservationNow()
     local count = Call(GetMerchantNumItems)
     if not character or not now or not Number(count, 0) then return end
@@ -124,7 +130,7 @@ function VIC:ScanMerchant()
         if itemId and type(name) == "string" and Integer(price, 0) and Integer(quantity, 1) then
             local costs, costsComplete = CostInfo(index, extended)
             local record = {
-                vendorId = vendorId, itemId = itemId, vendorName = Call(UnitName, "npc"),
+                vendorId = vendorId, itemId = itemId, vendorName = ReadUnitString(UnitName, "npc"),
                 observedAt = now, build = version .. "." .. build, interface = tonumber(interface),
                 channel = channel, playerFaction = Call(UnitFactionGroup, "player"),
                 priceCopper = price, quantity = quantity, stock = stock,
@@ -223,7 +229,7 @@ end
 function VIC:MergePersonalVendors(itemID, info, hiddenVendors)
     local entries = self.personalIndex and self.personalIndex[itemID]
     local now = self:ObservationNow()
-    local character = Call(UnitGUID, "player")
+    local character = ReadUnitString(UnitGUID, "player")
     local byID = {}
     for i, vendor in ipairs(info.vendors) do byID[vendor.id] = i end
     for vendorId, characters in pairs(entries or {}) do
